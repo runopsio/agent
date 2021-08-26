@@ -34,7 +34,7 @@
     @(grpc.http2/connect {:uri grpc-url
                           :idle-timeout -1})
     (catch Exception e
-      (log/warn "Could not start gRPC client"))))
+      (log/warn (format "Could not start gRPC client with error: %s" e)))))
 
 (mount/defstate grpc-client
                 :start (grpc-client)
@@ -42,18 +42,27 @@
 
 
 ; aws secret manager client
+(declare aws-client-start aws-client-stop)
+
 (mount/defstate aws-client
-                :start (SecretsManagerClient/create)
-                :stop (.close aws-client))
+                :start (aws-client-start)
+                :stop (aws-client-stop))
+
+(defn aws-client-start []
+  (try
+    (SecretsManagerClient/create)
+    (catch Exception e
+      (log/warn (format "Could not start AWS client with error: %s" e)))))
+
+(defn aws-client-stop []
+  (try
+    (.close aws-client)
+    (catch Exception e
+      (log/warn (format "Could not close AWS client with error: %s" e)))))
 
 
+; mount
 (defn mount-clients []
-  (let [mount-clients []
-        mount-clients (if (nil? grpc-client)
-                        mount-clients
-                        (conj mount-clients #'grpc-client))
-        mount-clients (if (empty? (System/getenv "AWS_ACCESS_KEY_ID"))
-                        mount-clients
-                        (conj mount-clients #'aws-client))]
+  (let [mount-clients [#'aws-client #'grpc-client]]
     (apply mount/start mount-clients)
     (println (format "clients: grpc: %s, aws: %s" grpc-client aws-client))))
