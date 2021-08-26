@@ -1,0 +1,30 @@
+syntax = "proto3";
+package io.grpc;
+
+message SubscriberRequest {
+  string tags = 1;
+}
+
+message TaskResponse {
+  int32 id = 1;
+  string type = 2;
+  string script = 3;
+  string secret_provider = 4;
+  string secret_path = 5;
+  string config = 6;
+}
+
+message LogsRequest {
+  int32 id = 1;
+  string status = 2;
+  string logs = 3;
+}
+
+message LogsResponse {
+  string message = 1;
+}
+
+service Agent {
+  rpc Subscribe (SubscriberRequest) returns (stream TaskResponse);
+  rpc Webhook (LogsRequest) returns (LogsResponse);
+}
