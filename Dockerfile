@@ -1,31 +1,39 @@
-FROM alpine
+FROM python:3.8-slim
 MAINTAINER RunOps first@runops.io 
 
-# java / curl
-RUN apk add --update-cache curl openjdk11-jre
+RUN apt-get update -y && \
+    apt-get install -y \
+        apt-utils \
+        software-properties-common \
+        curl \
+        gnupg \
+        gnupg2 \
+        openjdk-11-jre \
+        default-mysql-client \
+        postgresql-client-13
 
-# mysql / postgres
-RUN apk add mysql-client postgresql-client
-
-# python / pip / boto3
-RUN apk add py3-pip
-RUN pip3 install -U pip boto3 pytz
+RUN pip3 install -U boto3==1.18.31 \
+    pytz==2021.1 \
+    pandas==1.3.2
 
 # mongodb
-RUN echo 'http://dl-cdn.alpinelinux.org/alpine/v3.9/main' >> /etc/apk/repositories
-RUN echo 'http://dl-cdn.alpinelinux.org/alpine/v3.9/community' >> /etc/apk/repositories
-RUN apk update
-RUN apk add mongodb yaml-cpp=0.6.2-r2
+RUN curl -s https://www.mongodb.org/static/pgp/server-4.0.asc | apt-key add -
+RUN echo "deb [ arch=amd64 ] https://repo.mongodb.org/apt/ubuntu bionic/mongodb-org/4.0 multiverse" | tee /etc/apt/sources.list.d/mongodb-org-4.0.list && \
+    apt-get update -y && \
+    apt-get install -y mongodb-org libyaml-cpp0.6
 
 # vault
-RUN apk add vault libcap
-RUN setcap cap_ipc_lock= /usr/sbin/vault
+RUN curl -fsSL https://apt.releases.hashicorp.com/gpg | apt-key add -
+RUN apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main" && \
+    apt-get update && apt-get install -y vault=1.5.9 libcap2-bin && \
+    setcap cap_ipc_lock= /usr/bin/vault && \
+    ln -s /usr/bin/vault /usr/sbin/vault # to maintain compatibility
 
 # kubectl
-RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-RUN install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+RUN curl -L "https://dl.k8s.io/release/v1.22.1/bin/linux/amd64/kubectl" -o /usr/local/bin/kubectl && \
+    chmod 755 /usr/local/bin/kubectl
 
-RUN rm -rf /var/cache/apk/*
+RUN rm -rf /var/lib/apt/lists/*
 
 ADD target/uberjar/agent-0.1.0-SNAPSHOT-standalone.jar /agent/app.jar
 
