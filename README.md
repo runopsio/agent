@@ -25,6 +25,8 @@ $ lein run
 
 ## Build / Release image
 
+> In order to build the agent you'll need [protoc](https://grpc.io/docs/protoc-installation/) and [protoc-plugin](https://github.com/protojure/protoc-plugin#installation)
+
 ```sh
 VERSION=0.1.0 make build
 # push version image and tag as latest

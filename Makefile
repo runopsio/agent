@@ -9,7 +9,7 @@ IMAGE_PREFIX ?= runops
 IMMUTABLE_IMAGE := ${DOCKER_REGISTRY}${IMAGE_PREFIX}/${SHORT_NAME}:${IMMUTABLE_VERSION}
 MUTABLE_IMAGE := ${DOCKER_REGISTRY}${IMAGE_PREFIX}/${SHORT_NAME}:${MUTABLE_VERSION}
 
-all:
+gen-proto:
 	protoc --clojure_out=grpc-client:src --proto_path=resources resources/agent.proto
 
 info:
@@ -17,7 +17,7 @@ info:
 	@echo "Immutable tag:   ${IMMUTABLE_IMAGE}"
 	@echo "Mutable tag:     ${MUTABLE_IMAGE}"
 
-build:
+build: gen-proto
 	lein uberjar
 	docker build -t ${MUTABLE_IMAGE} .
 	docker tag ${MUTABLE_IMAGE} ${IMMUTABLE_IMAGE}
