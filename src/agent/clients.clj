@@ -53,8 +53,8 @@
     (grpc-client! grpc-client)))
 
 (defn reconnect-grpc []
-  (log/info "Trying to connect to gRPC server in 2 secs...")
-  (Thread/sleep 2000)
+  (log/info "Trying to connect to gRPC server in 5 secs...")
+  (Thread/sleep 5000)
   (maybe-start-grpc)
   (and (not (nil? (agent.clients/get-grpc-client)))
        (not (.isClosed (:session (.context (agent.clients/get-grpc-client)))))))

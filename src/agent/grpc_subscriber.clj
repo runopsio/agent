@@ -39,7 +39,7 @@
             (.isClosed (:session (.context (agent.clients/get-grpc-client)))))
       (when (clients/reconnect-grpc)
         (subscribe))
-      (let [[resp _] (async/alts! [(get-subscription-channel) (async/timeout (* 2 1000))])]
+      (let [[resp _] (async/alts! [(get-subscription-channel) (async/timeout (* 3 1000))])]
         (when resp
           (process-message resp))))
     (recur)))
