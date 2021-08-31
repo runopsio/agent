@@ -35,6 +35,6 @@ RUN curl -L "https://dl.k8s.io/release/v1.22.1/bin/linux/amd64/kubectl" -o /usr/
 
 RUN rm -rf /var/lib/apt/lists/*
 
-ADD agent/target/agent-0.0.1-SNAPSHOT-standalone.jar /agent/app.jar
+ADD target/uberjar/agent-0.1.0-SNAPSHOT-standalone.jar /agent/app.jar
 
 CMD ["java", "-jar", "/agent/app.jar"]
