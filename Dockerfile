@@ -12,9 +12,30 @@ RUN apt-get update -y && \
         default-mysql-client \
         postgresql-client-13
 
-RUN pip3 install -U boto3==1.18.31 \
+RUN pip3 install -U \
+    boto3==1.18.31 \
     pytz==2021.1 \
-    pandas==1.3.2
+    pandas==1.3.2 \
+    SQLAlchemy==1.4.23 \
+    appdirs==1.4.4 \
+    CacheControl==0.12.6 \
+    chardet==4.0.0 \
+    colorama==0.4.4 \
+    contextlib2==0.6.0 \
+    distlib==0.3.1 \
+    distro==1.5.0 \
+    html5lib==1.1 \
+    lockfile==0.12.2 \
+    msgpack==1.0.2 \
+    ordered-set==4.0.2 \
+    packaging==20.9 \
+    pep517==0.9.1 \
+    progress==1.5 \
+    pyparsing==2.4.7 \
+    pytoml==0.1.21 \
+    retrying==1.3.3 \
+    toml==0.10.2 \
+    webencodings==0.5.1
 
 # mongodb
 RUN curl -s https://www.mongodb.org/static/pgp/server-4.0.asc | apt-key add -
@@ -35,6 +56,6 @@ RUN curl -L "https://dl.k8s.io/release/v1.22.1/bin/linux/amd64/kubectl" -o /usr/
 
 RUN rm -rf /var/lib/apt/lists/*
 
-ADD agent/target/agent-0.0.1-SNAPSHOT-standalone.jar /agent/app.jar
+ADD target/uberjar/agent-0.1.0-SNAPSHOT-standalone.jar /agent/app.jar
 
 CMD ["java", "-jar", "/agent/app.jar"]
