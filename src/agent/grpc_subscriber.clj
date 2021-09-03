@@ -28,9 +28,13 @@
   (agent-client/Subscribe (clients/grpc-client) {:tags clients/tags} (subscription-channel)))
 
 (defn grpc-connect-subscribe [data]
-  (clients/connect-grpc data)
-  (when (clients/grpc-client-alive?)
-    (subscribe)))
+  (if (clients/grpc-client-alive?)
+    (do (log/info "gRPC subscribing new channel...")
+        (subscribe))
+    (do (log/info "gRPC client disconnected, creating new connection...")
+        (clients/connect-grpc data)
+        (when (clients/grpc-client-alive?)
+          (subscribe)))))
 
 (defn listen-subscription []
   (grpc-connect-subscribe {})
@@ -45,7 +49,7 @@
           (log/info "did not receive any ping in past 5 minutes... restarting gRPC connection")
           (if msg
             (process-message msg)
-            (do (log/warn "gRPC server has closed the connection...")
+            (do (log/warn "gRPC server has closed the subscription channel...")
                 (grpc-connect-subscribe {:delay 5000})))))
       (grpc-connect-subscribe {:delay 5000}))
     (recur)))
