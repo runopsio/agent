@@ -30,6 +30,7 @@
                  [camel-snake-kebab "0.4.2"]
                  [de.ubercode.clostache/clostache "1.4.0"]
                  [buddy "2.0.0"]]
+  :source-paths ["src" "test"]
   :main ^:skip-aot agent.core
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}})

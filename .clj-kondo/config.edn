@@ -1,0 +1,5 @@
+{:lint-as {mount.core/defstate clojure.core/def}}
+{:linters
+ {:unresolved-namespace {:report-duplicates true}
+  :unresolved-symbol {:report-duplicates true
+                      :exclude []}}}

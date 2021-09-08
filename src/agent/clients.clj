@@ -1,6 +1,6 @@
 (ns agent.clients
   (:require [cambium.core :as log]
-            [mount.core :as mount]
+            [mount.core :refer [defstate]]
             [buddy.core.codecs.base64 :as b64]
             [protojure.grpc.client.providers.http2 :as grpc.http2])
   (:import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient))
@@ -67,13 +67,19 @@
 ; aws secret manager client
 (declare aws-client-start aws-client-stop)
 
-(mount/defstate aws-client
-                :start (aws-client-start)
-                :stop (aws-client-stop))
+(defstate aws-client
+  :start (aws-client-start)
+  :stop (aws-client-stop))
 
 (defn aws-client-start []
   (try
-    (SecretsManagerClient/create)
+    (if-let [localstack-url (System/getenv "LOCALSTACK_URL")]
+      (do
+        (log/info "Initializing secret manager client with Localstack URL.")
+        (-> (SecretsManagerClient/builder)
+            (.endpointOverride (java.net.URI/create localstack-url))
+            (.build)))
+      (SecretsManagerClient/create))
     (catch Exception e
       (log/warn (format "Could not start AWS client with error: %s" e)))))
 
