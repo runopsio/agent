@@ -161,7 +161,6 @@
 (defmethod webhook :poll [task]
   (log/info (format "Starting task webhook for task id [%s] with status [%s]" (:id task) (:status task)))
   (try
-    (println task)
     (http-client/post (format "%s/v1/webhooks" clients/api-url) {:headers {"Content-Type" "application/json"
                                                                            "Authorization" (str "Bearer " clients/token)}
                                                                  :body (json/write-str (dissoc task :mode))})
