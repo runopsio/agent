@@ -85,7 +85,7 @@
                  outcome))))
 
 (def sh-postgres
-  (fn [task] (shell/sh "/usr/local/bin/psql"
+  (fn [task] (shell/sh "/usr/bin/psql"
                        "-A"
                        (format "-F%s" (or (:FIELD_SEPARATOR (:secrets task)) "\t"))
                        "-h" (:PG_HOST (:secrets task))
@@ -97,7 +97,7 @@
                        :in (:script task))))
 
 (def sh-postgres-csv
-  (fn [task] (shell/sh "/usr/local/bin/psql"
+  (fn [task] (shell/sh "/usr/bin/psql"
                        "-A"
                        (format "-F%s" (or (:FIELD_SEPARATOR (:secrets task)) ","))
                        "-h" (:PG_HOST (:secrets task))
