@@ -7,6 +7,7 @@
             [io.grpc.Agent.client :as grpc-client]
             [clj-http.client :as http-client]
             [clojure.data.json :as json]
+            [clojure.walk :refer [keywordize-keys]]
             [clostache.parser :as parser])
   (:import java.io.File
            io.sentry.Sentry))
@@ -16,118 +17,118 @@
                (apply shell/sh args))))
 
 (def sh-hashicorp-vault
-  (fn[task] (let [script-items (clojure.string/split (:script task) #" ")
-                  envs {"VAULT_TOKEN" (:VAULT_TOKEN (:secrets task))}
-                  envs (if (:VAULT_NAMESPACE (:secrets task))
-                         (assoc envs "VAULT_NAMESPACE" (:VAULT_NAMESPACE (:secrets task)))
-                         envs)
-                  command-items (apply conj ["vault"] script-items)
-                  command-items (conj command-items (format "-address=%s:%s"
-                                                            (:VAULT_ADDR (:secrets task))
-                                                            (str (or (:VAULT_PORT (:secrets task)) "8200"))))
-                  command-items (apply conj command-items [:env envs])
-                  sh (apply shell/sh command-items)]
-              sh)))
+  (fn [task] (let [script-items (clojure.string/split (:script task) #" ")
+                   envs {"VAULT_TOKEN" (:VAULT_TOKEN (:secrets task))}
+                   envs (if (:VAULT_NAMESPACE (:secrets task))
+                          (assoc envs "VAULT_NAMESPACE" (:VAULT_NAMESPACE (:secrets task)))
+                          envs)
+                   command-items (apply conj ["vault"] script-items)
+                   command-items (conj command-items (format "-address=%s:%s"
+                                                             (:VAULT_ADDR (:secrets task))
+                                                             (str (or (:VAULT_PORT (:secrets task)) "8200"))))
+                   command-items (apply conj command-items [:env envs])
+                   sh (apply shell/sh command-items)]
+               sh)))
 
 (def sh-k8s
-  (fn[task] (let [kube-file (File/createTempFile "task" (str (:id task)))
-                  _ (spit kube-file (clients/decode-base64 (:KUBE_CONFIG_DATA (:secrets task))))
-                  script-items (clojure.string/split (:script task) #" ")
-                  command-items (apply conj ["kubectl" "--kubeconfig" (.getAbsolutePath kube-file)]
-                                       script-items)
-                  sh (apply shell/sh command-items)]
-              (.delete kube-file)
-              sh)))
+  (fn [task] (let [kube-file (File/createTempFile "task" (str (:id task)))
+                   _ (spit kube-file (clients/decode-base64 (:KUBE_CONFIG_DATA (:secrets task))))
+                   script-items (clojure.string/split (:script task) #" ")
+                   command-items (apply conj ["kubectl" "--kubeconfig" (.getAbsolutePath kube-file)]
+                                        script-items)
+                   sh (apply shell/sh command-items)]
+               (.delete kube-file)
+               sh)))
 
 (def sh-k8s-apply
-  (fn[task] (let [kube-file (File/createTempFile "task" (str (:id task)))
-                  apply-file (File/createTempFile "apply" (str (:id task)))
-                  _ (spit kube-file (clients/decode-base64 (:KUBE_CONFIG_DATA (:secrets task))))
-                  _ (spit apply-file (:script task))
-                  command-items ["kubectl" "--kubeconfig" (.getAbsolutePath kube-file)
-                                 "apply" "-f" (.getAbsolutePath apply-file)]
-                  sh (apply shell/sh command-items)]
-              (.delete kube-file)
-              (.delete apply-file)
-              sh)))
+  (fn [task] (let [kube-file (File/createTempFile "task" (str (:id task)))
+                   apply-file (File/createTempFile "apply" (str (:id task)))
+                   _ (spit kube-file (clients/decode-base64 (:KUBE_CONFIG_DATA (:secrets task))))
+                   _ (spit apply-file (:script task))
+                   command-items ["kubectl" "--kubeconfig" (.getAbsolutePath kube-file)
+                                  "apply" "-f" (.getAbsolutePath apply-file)]
+                   sh (apply shell/sh command-items)]
+               (.delete kube-file)
+               (.delete apply-file)
+               sh)))
 
 (def sh-k8s-exec
-  (fn[task] (let [kube-file (File/createTempFile "task" (str (:id task)))
-                  _ (spit kube-file (clients/decode-base64 (:KUBE_CONFIG_DATA (:secrets task))))
-                  script-items (clojure.string/split (:script task) #" ")
-                  command-items ["kubectl" "--kubeconfig" (.getAbsolutePath kube-file)
-                                 "exec" (first script-items) "--"]
-                  command-items (apply conj command-items (rest script-items))
-                  sh (apply shell/sh command-items)]
-              (.delete kube-file)
-              sh)))
+  (fn [task] (let [kube-file (File/createTempFile "task" (str (:id task)))
+                   _ (spit kube-file (clients/decode-base64 (:KUBE_CONFIG_DATA (:secrets task))))
+                   script-items (clojure.string/split (:script task) #" ")
+                   command-items ["kubectl" "--kubeconfig" (.getAbsolutePath kube-file)
+                                  "exec" (first script-items) "--"]
+                   command-items (apply conj command-items (rest script-items))
+                   sh (apply shell/sh command-items)]
+               (.delete kube-file)
+               sh)))
 
 (def sh-mongo
-  (fn[task] (shell/sh "mongo" (:MONGO_CONNECTION_URI (:secrets task))
-                      "--eval" (:script task))))
+  (fn [task] (shell/sh "mongo" (:MONGO_CONNECTION_URI (:secrets task))
+                       "--eval" (:script task))))
 
 (def sh-mysql
-  (fn[task] (shell/sh "mysql"
-                      "-h" (:MYSQL_HOST (:secrets task))
-                      "-D" (:MYSQL_DB (:secrets task))
-                      "-u" (:MYSQL_USER (:secrets task))
-                      "-e" (:script task)
-                      "-P" (str (or (:MYSQL_PORT (:secrets task)) "3306"))
-                      :env {"MYSQL_PWD" (:MYSQL_PASS (:secrets task))})))
+  (fn [task] (shell/sh "mysql"
+                       "-h" (:MYSQL_HOST (:secrets task))
+                       "-D" (:MYSQL_DB (:secrets task))
+                       "-u" (:MYSQL_USER (:secrets task))
+                       "-e" (:script task)
+                       "-P" (str (or (:MYSQL_PORT (:secrets task)) "3306"))
+                       :env {"MYSQL_PWD" (:MYSQL_PASS (:secrets task))})))
 
 (def sh-mysql-csv
-  (fn[task] (let [outcome (sh-mysql task)]
-              (if (= 0 (:exit outcome))
-                (shell/sh "sed"
-                          (format "s/\\t/%s/g" (or (:FIELD_SEPARATOR (:secrets task)) ","))
-                          :in (:out outcome))
-                outcome))))
+  (fn [task] (let [outcome (sh-mysql task)]
+               (if (= 0 (:exit outcome))
+                 (shell/sh "sed"
+                           (format "s/\\t/%s/g" (or (:FIELD_SEPARATOR (:secrets task)) ","))
+                           :in (:out outcome))
+                 outcome))))
 
 (def sh-postgres
-  (fn[task] (shell/sh "/usr/bin/psql"
-                      "-A"
-                      (format "-F%s" (or (:FIELD_SEPARATOR (:secrets task)) "\t"))
-                      "-h" (:PG_HOST (:secrets task))
-                      "-U" (:PG_USER (:secrets task))
-                      "-d" (:PG_DB (:secrets task))
-                      "-p" (str (or (:PG_PORT (:secrets task)) "5432"))
-                      "-v" "ON_ERROR_STOP=1"
-                      :env {"PGPASSWORD" (:PG_PASS (:secrets task))}
-                      :in (:script task))))
+  (fn [task] (shell/sh "/usr/bin/psql"
+                       "-A"
+                       (format "-F%s" (or (:FIELD_SEPARATOR (:secrets task)) "\t"))
+                       "-h" (:PG_HOST (:secrets task))
+                       "-U" (:PG_USER (:secrets task))
+                       "-d" (:PG_DB (:secrets task))
+                       "-p" (str (or (:PG_PORT (:secrets task)) "5432"))
+                       "-v" "ON_ERROR_STOP=1"
+                       :env {"PGPASSWORD" (:PG_PASS (:secrets task))}
+                       :in (:script task))))
 
 (def sh-postgres-csv
-  (fn[task] (shell/sh "/usr/bin/psql"
-                      "-A"
-                      (format "-F%s" (or (:FIELD_SEPARATOR (:secrets task)) ","))
-                      "-h" (:PG_HOST (:secrets task))
-                      "-U" (:PG_USER (:secrets task))
-                      "-d" (:PG_DB (:secrets task))
-                      "-p" (str (or (:PG_PORT (:secrets task)) "5432"))
-                      "-v" "ON_ERROR_STOP=1"
-                      :env {"PGPASSWORD" (:PG_PASS (:secrets task))}
-                      :in (:script task))))
+  (fn [task] (shell/sh "/usr/bin/psql"
+                       "-A"
+                       (format "-F%s" (or (:FIELD_SEPARATOR (:secrets task)) ","))
+                       "-h" (:PG_HOST (:secrets task))
+                       "-U" (:PG_USER (:secrets task))
+                       "-d" (:PG_DB (:secrets task))
+                       "-p" (str (or (:PG_PORT (:secrets task)) "5432"))
+                       "-v" "ON_ERROR_STOP=1"
+                       :env {"PGPASSWORD" (:PG_PASS (:secrets task))}
+                       :in (:script task))))
 
 (def sh-python
-  (fn[task] (shell/sh "python3"
-                      :in (:script task))))
+  (fn [task] (shell/sh "python3"
+                       :in (:script task))))
 
 (def sh-rails
-  (fn[task] (shell/sh "rails" (:script task))))
+  (fn [task] (shell/sh "rails" (:script task))))
 
 (def sh-rails-console
-  (fn[task] (shell/sh "rails" "runner" (:script task))))
+  (fn [task] (shell/sh "rails" "runner" (:script task))))
 
 (def sh-rails-console-k8s
-  (fn[task] (let [kube-file (File/createTempFile "task" (str (:id task)))
-                  _ (spit kube-file (clients/decode-base64 (:KUBE_CONFIG_DATA (:secrets task))))
-                  command-items ["kubectl"
-                                 "--kubeconfig" (.getAbsolutePath kube-file)
-                                 "exec" "-n" (:NAMESPACE (:secrets task))
-                                 (format "deploy/%s" (:DEPLOYMENT (:secrets task)))
-                                 "--" "bundle" "exec" "rails" "runner" (:script task)]
-                  sh (apply shell/sh command-items)]
-              (.delete kube-file)
-              sh)))
+  (fn [task] (let [kube-file (File/createTempFile "task" (str (:id task)))
+                   _ (spit kube-file (clients/decode-base64 (:KUBE_CONFIG_DATA (:secrets task))))
+                   command-items ["kubectl"
+                                  "--kubeconfig" (.getAbsolutePath kube-file)
+                                  "exec" "-n" (:NAMESPACE (:secrets task))
+                                  (format "deploy/%s" (:DEPLOYMENT (:secrets task)))
+                                  "--" "bundle" "exec" "rails" "runner" (:script task)]
+                   sh (apply shell/sh command-items)]
+               (.delete kube-file)
+               sh)))
 
 
 (def commands
@@ -170,7 +171,7 @@
       (Sentry/captureException e (format "Failed to perform webhook for task id [%s]" (:id task)))
       [nil "webhook failed"])))
 
-(defn succeed-task-with-message [task message ]
+(defn succeed-task-with-message [task message]
   (webhook {:id (:id task) :status "success" :logs message :mode (:mode task)}))
 
 (defn fail-task-with-message [task message]
@@ -180,6 +181,7 @@
          parse-command
          lock-task
          get-secrets
+         add-secrets-from-mapping
          validate-secrets
          render-script
          run-command)
@@ -189,6 +191,7 @@
               parse-command
               lock-task
               get-secrets
+              add-secrets-from-mapping
               validate-secrets
               render-script
               run-command))
@@ -225,6 +228,23 @@
       [with-secrets-task nil]
       (fail-task-with-message task (second result)))))
 
+(defn- add-secrets-from-mapping [task]
+  (try
+    (let [secrets (:secrets task)
+          secret-mapping (keywordize-keys (json/read-str
+                                           (or (:secret-mapping task) "{}")))]
+      [(assoc task :secrets
+              (into secrets
+                    (map (fn [[k v]]
+                           (when-let  [secret-val (get secrets (keyword v))]
+                             {k secret-val}))
+                         secret-mapping))) nil])
+    (catch Exception e
+      (let [msg-err (format "failed reading secret-mapping config. task=%s, mapping=%s, err=%s"
+                            (:id task) (:secret-mapping task) (.getMessage e))]
+        (log/warn msg-err)
+        (Sentry/captureMessage msg-err)
+        (fail-task-with-message task msg-err)))))
 
 (defmulti validate-secrets (fn [task] (:type task)))
 (declare k8s-validation

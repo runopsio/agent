@@ -23,6 +23,12 @@ poll the tasks and execute them.
 ## Run dev
 $ lein run
 
+### Run Tests
+
+```sh
+lein test
+```
+
 ## Build / Release image
 
 > In order to build the agent you'll need [protoc](https://grpc.io/docs/protoc-installation/) and [protoc-plugin](https://github.com/protojure/protoc-plugin#installation)
@@ -40,3 +46,4 @@ VERSION=0.1.0 make docker-mutable-push
 
 ## Run image
 $ docker run --rm -e TOKEN={token} runops/agent:0.1.0
+

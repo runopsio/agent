@@ -43,3 +43,8 @@ build/
 # IDE
 .idea/
 *.iml
+.calva
+
+# Linter
+.lsp
+.clj-kondo/.cache
