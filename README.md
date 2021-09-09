@@ -16,7 +16,6 @@ poll the tasks and execute them.
 - AWS_ACCESS_KEY_ID (if using AWS secrets manager)
 - AWS_SECRET_ACCESS_KEY (if using AWS secrets manager)
 - AWS_REGION (if using AWS secrets manager)
-- LOCALSTACK_URL obtain an aws secret manager client overriding the default endpoint pointing to a [LocalStack instance](https://github.com/localstack/localstack)
 - VAULT_ADDR (if using hashicorp-vault as secret manager)
 - VAULT_ROLE (if using hashicorp-vault as secret manager)
 - VAULT_AUTH_METHOD (if using hashicorp-vault as secret manager, currently only `kubernetes-account-service` supported)
