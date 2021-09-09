@@ -244,7 +244,7 @@
                             (:id task) (:secret-mapping task) (.getMessage e))]
         (log/warn msg-err)
         (Sentry/captureMessage msg-err)
-        [task nil]))))
+        (fail-task-with-message task msg-err)))))
 
 (defmulti validate-secrets (fn [task] (:type task)))
 (declare k8s-validation

@@ -73,13 +73,7 @@
 
 (defn aws-client-start []
   (try
-    (if-let [localstack-url (System/getenv "LOCALSTACK_URL")]
-      (do
-        (log/info "Initializing secret manager client with Localstack URL.")
-        (-> (SecretsManagerClient/builder)
-            (.endpointOverride (java.net.URI/create localstack-url))
-            (.build)))
-      (SecretsManagerClient/create))
+    (SecretsManagerClient/create)
     (catch Exception e
       (log/warn (format "Could not start AWS client with error: %s" e)))))
 
