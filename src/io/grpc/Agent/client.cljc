@@ -39,3 +39,16 @@
     (-> (send-unary-params input params)
         (p/then (fn [_] (invoke-unary client desc output)))))))
 
+(defn Health
+  ([client params] (Health client {} params))
+  ([client metadata params]
+  (let [input (async/chan 1)
+        output (async/chan 1)
+        desc {:service "io.grpc.Agent"
+              :method  "Health"
+              :input   {:f io.grpc/new-HealthRequest :ch input}
+              :output  {:f io.grpc/pb->HealthRequest :ch output}
+              :metadata metadata}]
+    (-> (send-unary-params input params)
+        (p/then (fn [_] (invoke-unary client desc output)))))))
+
