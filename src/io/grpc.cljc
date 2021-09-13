@@ -30,6 +30,9 @@
 (declare cis->LogsResponse)
 (declare ecis->LogsResponse)
 (declare new-LogsResponse)
+(declare cis->HealthRequest)
+(declare ecis->HealthRequest)
+(declare new-HealthRequest)
 
 
 ;;----------------------------------------------------------------------------------
@@ -89,7 +92,7 @@
 ;-----------------------------------------------------------------------------
 ; TaskResponse
 ;-----------------------------------------------------------------------------
-(defrecord TaskResponse-record [id type script secret-provider secret-path config]
+(defrecord TaskResponse-record [id type script secret-provider secret-path secret-mapping config]
   pb/Writer
   (serialize [this os]
     (serdes.core/write-Int32 1  {:optimize true} (:id this) os)
@@ -97,7 +100,8 @@
     (serdes.core/write-String 3  {:optimize true} (:script this) os)
     (serdes.core/write-String 4  {:optimize true} (:secret-provider this) os)
     (serdes.core/write-String 5  {:optimize true} (:secret-path this) os)
-    (serdes.core/write-String 6  {:optimize true} (:config this) os))
+    (serdes.core/write-String 6  {:optimize true} (:secret-mapping this) os)
+    (serdes.core/write-String 7  {:optimize true} (:config this) os))
   pb/TypeReflection
   (gettype [this]
     "io.grpc.TaskResponse"))
@@ -107,9 +111,10 @@
 (s/def :io.grpc.TaskResponse/script string?)
 (s/def :io.grpc.TaskResponse/secret-provider string?)
 (s/def :io.grpc.TaskResponse/secret-path string?)
+(s/def :io.grpc.TaskResponse/secret-mapping string?)
 (s/def :io.grpc.TaskResponse/config string?)
-(s/def ::TaskResponse-spec (s/keys :opt-un [:io.grpc.TaskResponse/id :io.grpc.TaskResponse/type :io.grpc.TaskResponse/script :io.grpc.TaskResponse/secret-provider :io.grpc.TaskResponse/secret-path :io.grpc.TaskResponse/config ]))
-(def TaskResponse-defaults {:id 0 :type "" :script "" :secret-provider "" :secret-path "" :config "" })
+(s/def ::TaskResponse-spec (s/keys :opt-un [:io.grpc.TaskResponse/id :io.grpc.TaskResponse/type :io.grpc.TaskResponse/script :io.grpc.TaskResponse/secret-provider :io.grpc.TaskResponse/secret-path :io.grpc.TaskResponse/secret-mapping :io.grpc.TaskResponse/config ]))
+(def TaskResponse-defaults {:id 0 :type "" :script "" :secret-provider "" :secret-path "" :secret-mapping "" :config "" })
 
 (defn cis->TaskResponse
   "CodedInputStream to TaskResponse"
@@ -122,7 +127,8 @@
                3 [:script (serdes.core/cis->String is)]
                4 [:secret-provider (serdes.core/cis->String is)]
                5 [:secret-path (serdes.core/cis->String is)]
-               6 [:config (serdes.core/cis->String is)]
+               6 [:secret-mapping (serdes.core/cis->String is)]
+               7 [:config (serdes.core/cis->String is)]
 
                [index (serdes.core/cis->undefined tag is)]))
          is)
@@ -250,4 +256,49 @@
   (cis->LogsResponse (serdes.stream/new-cis input)))
 
 (def ^:protojure.protobuf.any/record LogsResponse-meta {:type "io.grpc.LogsResponse" :decoder pb->LogsResponse})
+
+;-----------------------------------------------------------------------------
+; HealthRequest
+;-----------------------------------------------------------------------------
+(defrecord HealthRequest-record []
+  pb/Writer
+  (serialize [this os]
+)
+  pb/TypeReflection
+  (gettype [this]
+    "io.grpc.HealthRequest"))
+
+(s/def ::HealthRequest-spec (s/keys :opt-un []))
+(def HealthRequest-defaults {})
+
+(defn cis->HealthRequest
+  "CodedInputStream to HealthRequest"
+  [is]
+  (->> (tag-map HealthRequest-defaults
+         (fn [tag index]
+             (case index
+               [index (serdes.core/cis->undefined tag is)]))
+         is)
+        (map->HealthRequest-record)))
+
+(defn ecis->HealthRequest
+  "Embedded CodedInputStream to HealthRequest"
+  [is]
+  (serdes.core/cis->embedded cis->HealthRequest is))
+
+(defn new-HealthRequest
+  "Creates a new instance from a map, similar to map->HealthRequest except that
+  it properly accounts for nested messages, when applicable.
+  "
+  [init]
+  {:pre [(if (s/valid? ::HealthRequest-spec init) true (throw (ex-info "Invalid input" (s/explain-data ::HealthRequest-spec init))))]}
+  (-> (merge HealthRequest-defaults init)
+      (map->HealthRequest-record)))
+
+(defn pb->HealthRequest
+  "Protobuf to HealthRequest"
+  [input]
+  (cis->HealthRequest (serdes.stream/new-cis input)))
+
+(def ^:protojure.protobuf.any/record HealthRequest-meta {:type "io.grpc.HealthRequest" :decoder pb->HealthRequest})
 
