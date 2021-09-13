@@ -11,7 +11,8 @@ message TaskResponse {
   string script = 3;
   string secret_provider = 4;
   string secret_path = 5;
-  string config = 6;
+  string secret_mapping = 6;
+  string config = 7;
 }
 
 message LogsRequest {
@@ -24,7 +25,10 @@ message LogsResponse {
   string message = 1;
 }
 
+message HealthRequest{}
+
 service Agent {
   rpc Subscribe (SubscriberRequest) returns (stream TaskResponse);
   rpc Webhook (LogsRequest) returns (LogsResponse);
+  rpc Health (HealthRequest) returns (HealthRequest);
 }
