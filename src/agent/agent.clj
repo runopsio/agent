@@ -231,8 +231,11 @@
 (defn- add-secrets-from-mapping [task]
   (try
     (let [secrets (:secrets task)
-          secret-mapping (keywordize-keys (json/read-str
-                                           (or (:secret-mapping task) "{}")))]
+          secret-mapping (:secret-mapping task)
+          secret-mapping (keywordize-keys
+                          (json/read-str
+                           (if (clojure.string/blank? secret-mapping)
+                             "{}" secret-mapping)))]
       [(assoc task :secrets
               (into secrets
                     (map (fn [[k v]]
