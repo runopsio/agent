@@ -28,6 +28,7 @@ RUN pip3 install -U \
     lockfile==0.12.2 \
     msgpack==1.0.2 \
     ordered-set==4.0.2 \
+    paramiko==2.7.2 \
     packaging==20.9 \
     pep517==0.9.1 \
     progress==1.5 \
