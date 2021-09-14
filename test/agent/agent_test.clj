@@ -20,4 +20,10 @@
                 {:secrets {:PG_HOST "127.0.0.1" :PG_USER "myuser"}})]
       (is (= {:PG_HOST "127.0.0.1" :PG_USER "myuser"}
              (select-keys
-              (:secrets (first task)) [:PG_HOST :PG_USER]))))))
+              (:secrets (first task)) [:PG_HOST :PG_USER])))))
+  (testing "must continue if secret mapping has empty string"
+    (let [task (@#'a/add-secrets-from-mapping {:secrets {:PG_HOST "127.0.0.1"}
+                                               :secret-mapping ""})]
+      (is (= {:PG_HOST "127.0.0.1"}
+             (select-keys
+              (:secrets (first task)) [:PG_HOST]))))))
