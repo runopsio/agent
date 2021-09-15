@@ -69,6 +69,7 @@
 
 (def sh-mysql
   (fn [task] (shell/sh "mysql"
+                       "--default-character-set=utf8"
                        "-h" (:MYSQL_HOST (:secrets task))
                        "-D" (:MYSQL_DB (:secrets task))
                        "-u" (:MYSQL_USER (:secrets task))
