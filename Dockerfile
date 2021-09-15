@@ -10,7 +10,8 @@ RUN apt-get update -y && \
         gnupg2 \
         openjdk-11-jre \
         default-mysql-client \
-        postgresql-client-13
+        postgresql-client-13 \
+        locales
 
 RUN pip3 install -U \
     boto3==1.18.31 \
@@ -56,6 +57,12 @@ RUN curl -L "https://dl.k8s.io/release/v1.22.1/bin/linux/amd64/kubectl" -o /usr/
     chmod 755 /usr/local/bin/kubectl
 
 RUN rm -rf /var/lib/apt/lists/*
+
+# config utf-8 output
+RUN locale-gen pt_BR.UTF-8
+ENV LANG pt_BR.UTF-8
+ENV LANGUAGE pt_BR:en
+ENV LC_ALL pt_BR.UTF-8
 
 ADD target/uberjar/agent-0.1.0-SNAPSHOT-standalone.jar /agent/app.jar
 
