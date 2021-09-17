@@ -13,6 +13,8 @@ message TaskResponse {
   string secret_path = 5;
   string secret_mapping = 6;
   string config = 7;
+  string x_b3_trace_id = 8;
+  string x_b3_parent_span_id = 9;
 }
 
 message LogsRequest {
