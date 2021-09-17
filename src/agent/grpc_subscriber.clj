@@ -23,9 +23,17 @@
       (log/error (format "failed to run task id %s command with error: %s" (:id task) e))
       (Sentry/captureException e))))
 
+(defn when-closed [future-to-watch callback]
+  (future (callback
+            (try
+              @future-to-watch
+              (catch Exception e
+                (log/warn (format "subscription ended with message: %s" (:message (ex-data (.getCause e))))))))))
+
 (defn subscribe []
   (subscription-channel! (async/chan 1))
-  (agent-client/Subscribe (clients/grpc-client) {:tags clients/tags} (subscription-channel)))
+  (let [subscription-promise (agent-client/Subscribe (clients/grpc-client) {:tags clients/tags} (subscription-channel))]
+    (when-closed subscription-promise #(when % (log/warn (format "subscription finished: %s" %))))))
 
 (defn grpc-connect-subscribe [data]
   (if (clients/grpc-client-alive?)
