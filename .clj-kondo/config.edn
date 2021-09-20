@@ -1,4 +1,5 @@
-{:lint-as {mount.core/defstate clojure.core/def}}
+{:lint-as {mount.core/defstate clojure.core/def
+           cambium.core/deflevel clojure.core/def}}
 {:linters
  {:unresolved-namespace {:report-duplicates true}
   :unresolved-symbol {:report-duplicates true
