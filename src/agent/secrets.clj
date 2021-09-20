@@ -1,6 +1,5 @@
 (ns agent.secrets
   (:require [cambium.core :as log]
-            [mount.core :refer [defstate]]
             [clojure.data.json :as json]
             [clj-http.client :as client]
             [agent.clients :as clients]
@@ -14,22 +13,23 @@
                      json/read-str
                      clojure.walk/keywordize-keys)]
       (if (not (map? parsed))
-        (do [nil "invalid secret 'config': Must be a valid JSON object"])
+        [nil "invalid secret 'config': Must be a valid JSON object"]
         [parsed nil]))
     (catch Exception e
       (log/warn (format "invalid secret 'config': Must be a valid JSON object. Error: %s" e))
       (Sentry/captureException e)
       [nil "invalid secret 'config': Must be a valid JSON object"])))
 
-(defn parse-task-config [task]
+(defn parse-task-config
   "This method parses the :config definition from the task
   and associate with the task.
   If :config is null, then an empty map is provided."
+  [task]
   (let [config (:config task)
         config (if (empty? config) "{}" config)]
     (err/err->> config
                 json->map
-                (fn[secrets] [(assoc task :secrets secrets) nil]))))
+                (fn [secrets] [(assoc task :secrets secrets) nil]))))
 
 (defn validate-secret-path [task]
   (if (not (empty? (:secret-path task)))
@@ -41,10 +41,11 @@
 (defmulti fetch (fn [task] (:secret-provider task)))
 
 ;; default
-(defmethod fetch :default [task]
+(defmethod fetch :default
   "This method does not use any provider, and expects that the :config key is present in the
   task definition. If not, an empty :secrets will be returned. If the command require any secrets,
   then execution will fail miserably..."
+  [task]
   (log/info (format "Fetching secrets from task config for task id: %s" (:id task)))
   (err/err->> task
               parse-task-config))
@@ -64,11 +65,11 @@
                         (System/getenv (format "%s" (clojure.string/upper-case secret-path)))
                         (System/getenv (format "%s" (clojure.string/replace secret-path "-" "_")))
                         (System/getenv (format "%s" (clojure.string/upper-case
-                                                      (clojure.string/replace secret-path "-" "_")))))]
+                                                     (clojure.string/replace secret-path "-" "_")))))]
     (if secret-json
       (err/err->> secret-json
                   json->map
-                  (fn[secrets] [(assoc task :secrets secrets) nil]))
+                  (fn [secrets] [(assoc task :secrets secrets) nil]))
       (do (log/error (format "failed to get env-var '%s'" secret-path))
           [nil (format "Secret '%s' not found" secret-path)]))))
 
@@ -91,7 +92,7 @@
           secret-json (.secretString secret-response)]
       (err/err->> secret-json
                   json->map
-                  (fn[secrets] [(assoc task :secrets secrets) nil])))
+                  (fn [secrets] [(assoc task :secrets secrets) nil])))
     (catch Exception e
       (log/error (format "Failed to fetch secrets from aws with error: %s" e))
       (Sentry/captureException e)
@@ -145,7 +146,7 @@
           json-response (:body vault-auth-response)]
       (err/err->> json-response
                   json->map
-                  (fn[result] [(assoc task :client-token (get-in result [:auth :client_token])) nil])))
+                  (fn [result] [(assoc task :client-token (get-in result [:auth :client_token])) nil])))
     (catch Exception e
       (log/error (format "failed to get vault client_token (kubernetes account service) with error: %s" e))
       (Sentry/captureException e)
@@ -160,7 +161,7 @@
           json-response (:body vault-response)]
       (err/err->> json-response
                   json->map
-                  (fn[secrets] [(assoc task :vault-secrets (:data secrets)) nil])))
+                  (fn [secrets] [(assoc task :vault-secrets (:data secrets)) nil])))
     (catch Exception e
       (log/error (format "failed to get vault generic secrets with error: %s" e))
       [nil "failed to get vault generic secrets"])))
@@ -169,7 +170,7 @@
 ; format vault secret
 (defmulti format-secrets (fn [task] (:secret-engine task)))
 
-(defmethod format-secrets :default [task]
+(defmethod format-secrets :default [_]
   (log/warn "invalid vault secret engine")
   [nil "invalid vault secret engine"])
 
@@ -181,7 +182,7 @@
   (let [username (get-in task [:vault-secrets :username])
         password (get-in task [:vault-secrets :password])]
     (err/err->> (assoc task :username username
-                            :password password)
+                       :password password)
                 parse-task-config
                 format-by-db)))
 

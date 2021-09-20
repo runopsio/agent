@@ -53,20 +53,20 @@
     "io.grpc.SubscriberRequest"))
 
 (s/def :io.grpc.SubscriberRequest/tags string?)
-(s/def ::SubscriberRequest-spec (s/keys :opt-un [:io.grpc.SubscriberRequest/tags ]))
-(def SubscriberRequest-defaults {:tags "" })
+(s/def ::SubscriberRequest-spec (s/keys :opt-un [:io.grpc.SubscriberRequest/tags]))
+(def SubscriberRequest-defaults {:tags ""})
 
 (defn cis->SubscriberRequest
   "CodedInputStream to SubscriberRequest"
   [is]
   (->> (tag-map SubscriberRequest-defaults
-         (fn [tag index]
-             (case index
-               1 [:tags (serdes.core/cis->String is)]
+                (fn [tag index]
+                  (case index
+                    1 [:tags (serdes.core/cis->String is)]
 
-               [index (serdes.core/cis->undefined tag is)]))
-         is)
-        (map->SubscriberRequest-record)))
+                    [index (serdes.core/cis->undefined tag is)]))
+                is)
+       (map->SubscriberRequest-record)))
 
 (defn ecis->SubscriberRequest
   "Embedded CodedInputStream to SubscriberRequest"
@@ -117,28 +117,28 @@
 (s/def :io.grpc.TaskResponse/type string?)
 (s/def :io.grpc.TaskResponse/secret-mapping string?)
 (s/def :io.grpc.TaskResponse/x-b3-trace-id string?)
-(s/def ::TaskResponse-spec (s/keys :opt-un [:io.grpc.TaskResponse/config :io.grpc.TaskResponse/x-b3-parent-span-id :io.grpc.TaskResponse/id :io.grpc.TaskResponse/secret-provider :io.grpc.TaskResponse/script :io.grpc.TaskResponse/secret-path :io.grpc.TaskResponse/type :io.grpc.TaskResponse/secret-mapping :io.grpc.TaskResponse/x-b3-trace-id ]))
-(def TaskResponse-defaults {:config "" :x-b3-parent-span-id "" :id 0 :secret-provider "" :script "" :secret-path "" :type "" :secret-mapping "" :x-b3-trace-id "" })
+(s/def ::TaskResponse-spec (s/keys :opt-un [:io.grpc.TaskResponse/config :io.grpc.TaskResponse/x-b3-parent-span-id :io.grpc.TaskResponse/id :io.grpc.TaskResponse/secret-provider :io.grpc.TaskResponse/script :io.grpc.TaskResponse/secret-path :io.grpc.TaskResponse/type :io.grpc.TaskResponse/secret-mapping :io.grpc.TaskResponse/x-b3-trace-id]))
+(def TaskResponse-defaults {:config "" :x-b3-parent-span-id "" :id 0 :secret-provider "" :script "" :secret-path "" :type "" :secret-mapping "" :x-b3-trace-id ""})
 
 (defn cis->TaskResponse
   "CodedInputStream to TaskResponse"
   [is]
   (->> (tag-map TaskResponse-defaults
-         (fn [tag index]
-             (case index
-               7 [:config (serdes.core/cis->String is)]
-               9 [:x-b3-parent-span-id (serdes.core/cis->String is)]
-               1 [:id (serdes.core/cis->Int32 is)]
-               4 [:secret-provider (serdes.core/cis->String is)]
-               3 [:script (serdes.core/cis->String is)]
-               5 [:secret-path (serdes.core/cis->String is)]
-               2 [:type (serdes.core/cis->String is)]
-               6 [:secret-mapping (serdes.core/cis->String is)]
-               8 [:x-b3-trace-id (serdes.core/cis->String is)]
+                (fn [tag index]
+                  (case index
+                    7 [:config (serdes.core/cis->String is)]
+                    9 [:x-b3-parent-span-id (serdes.core/cis->String is)]
+                    1 [:id (serdes.core/cis->Int32 is)]
+                    4 [:secret-provider (serdes.core/cis->String is)]
+                    3 [:script (serdes.core/cis->String is)]
+                    5 [:secret-path (serdes.core/cis->String is)]
+                    2 [:type (serdes.core/cis->String is)]
+                    6 [:secret-mapping (serdes.core/cis->String is)]
+                    8 [:x-b3-trace-id (serdes.core/cis->String is)]
 
-               [index (serdes.core/cis->undefined tag is)]))
-         is)
-        (map->TaskResponse-record)))
+                    [index (serdes.core/cis->undefined tag is)]))
+                is)
+       (map->TaskResponse-record)))
 
 (defn ecis->TaskResponse
   "Embedded CodedInputStream to TaskResponse"
@@ -177,22 +177,22 @@
 (s/def :io.grpc.LogsRequest/id int?)
 (s/def :io.grpc.LogsRequest/status string?)
 (s/def :io.grpc.LogsRequest/logs string?)
-(s/def ::LogsRequest-spec (s/keys :opt-un [:io.grpc.LogsRequest/id :io.grpc.LogsRequest/status :io.grpc.LogsRequest/logs ]))
-(def LogsRequest-defaults {:id 0 :status "" :logs "" })
+(s/def ::LogsRequest-spec (s/keys :opt-un [:io.grpc.LogsRequest/id :io.grpc.LogsRequest/status :io.grpc.LogsRequest/logs]))
+(def LogsRequest-defaults {:id 0 :status "" :logs ""})
 
 (defn cis->LogsRequest
   "CodedInputStream to LogsRequest"
   [is]
   (->> (tag-map LogsRequest-defaults
-         (fn [tag index]
-             (case index
-               1 [:id (serdes.core/cis->Int32 is)]
-               2 [:status (serdes.core/cis->String is)]
-               3 [:logs (serdes.core/cis->String is)]
+                (fn [tag index]
+                  (case index
+                    1 [:id (serdes.core/cis->Int32 is)]
+                    2 [:status (serdes.core/cis->String is)]
+                    3 [:logs (serdes.core/cis->String is)]
 
-               [index (serdes.core/cis->undefined tag is)]))
-         is)
-        (map->LogsRequest-record)))
+                    [index (serdes.core/cis->undefined tag is)]))
+                is)
+       (map->LogsRequest-record)))
 
 (defn ecis->LogsRequest
   "Embedded CodedInputStream to LogsRequest"
@@ -227,20 +227,20 @@
     "io.grpc.LogsResponse"))
 
 (s/def :io.grpc.LogsResponse/message string?)
-(s/def ::LogsResponse-spec (s/keys :opt-un [:io.grpc.LogsResponse/message ]))
-(def LogsResponse-defaults {:message "" })
+(s/def ::LogsResponse-spec (s/keys :opt-un [:io.grpc.LogsResponse/message]))
+(def LogsResponse-defaults {:message ""})
 
 (defn cis->LogsResponse
   "CodedInputStream to LogsResponse"
   [is]
   (->> (tag-map LogsResponse-defaults
-         (fn [tag index]
-             (case index
-               1 [:message (serdes.core/cis->String is)]
+                (fn [tag index]
+                  (case index
+                    1 [:message (serdes.core/cis->String is)]
 
-               [index (serdes.core/cis->undefined tag is)]))
-         is)
-        (map->LogsResponse-record)))
+                    [index (serdes.core/cis->undefined tag is)]))
+                is)
+       (map->LogsResponse-record)))
 
 (defn ecis->LogsResponse
   "Embedded CodedInputStream to LogsResponse"
@@ -268,8 +268,7 @@
 ;-----------------------------------------------------------------------------
 (defrecord HealthRequest-record []
   pb/Writer
-  (serialize [this os]
-)
+  (serialize [this os])
   pb/TypeReflection
   (gettype [this]
     "io.grpc.HealthRequest"))
@@ -281,11 +280,11 @@
   "CodedInputStream to HealthRequest"
   [is]
   (->> (tag-map HealthRequest-defaults
-         (fn [tag index]
-             (case index
-               [index (serdes.core/cis->undefined tag is)]))
-         is)
-        (map->HealthRequest-record)))
+                (fn [tag index]
+                  (case index
+                    [index (serdes.core/cis->undefined tag is)]))
+                is)
+       (map->HealthRequest-record)))
 
 (defn ecis->HealthRequest
   "Embedded CodedInputStream to HealthRequest"

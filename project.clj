@@ -25,6 +25,7 @@
                  [cambium/cambium.codec-cheshire "1.0.0"]
                  [cambium/cambium.logback.json "0.4.4"]
 
+                 [clj-kondo "2021.08.06"]
                  [mount "0.1.16"]
                  [clj-http "3.12.3"]
                  [software.amazon.awssdk/secretsmanager "2.16.69"]
@@ -32,8 +33,7 @@
                  [de.ubercode.clostache/clostache "1.4.0"]
                  [buddy "2.0.0"]]
   :plugins [[lein-bump-version "0.1.6"]
-            [lein-exec "0.3.7"]
-            [lein-cljfmt "0.8.0"]]
+            [lein-exec "0.3.7"]]
   :source-paths ["src" "test"]
   :main ^:skip-aot agent.core
   :target-path "target/%s"

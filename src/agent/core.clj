@@ -8,7 +8,7 @@
 
 (def tags (System/getenv "TAGS"))
 
-(defn -main [& args]
+(defn -main [& _]
   (log/info (format "Starting agent tagged with [%s]" tags))
   (log/info (format "version=%s, revision=%s"
                     (System/getProperty "agent.version")
