@@ -1,6 +1,8 @@
 FROM python:3.8-slim
 MAINTAINER RunOps first@runops.io
 
+ARG VERSION
+
 RUN apt-get update -y && \
     apt-get install -y \
         apt-utils \
@@ -57,6 +59,6 @@ RUN curl -L "https://dl.k8s.io/release/v1.22.1/bin/linux/amd64/kubectl" -o /usr/
 
 RUN rm -rf /var/lib/apt/lists/*
 
-ADD target/uberjar/agent-0.1.0-SNAPSHOT-standalone.jar /agent/app.jar
+ADD target/uberjar/agent-$VERSION-standalone.jar /agent/app.jar
 
 CMD ["java", "-jar", "/agent/app.jar"]

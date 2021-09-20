@@ -1,4 +1,4 @@
-(defproject agent "0.1.5"
+(defproject agent "0.0.0"
   :description "Runops Agent"
   :url "https://github.com/runops/agent"
   :license {:name "EPL-2.0 OR GPL-2.0-or-later WITH Classpath-exception-2.0"
@@ -31,8 +31,13 @@
                  [camel-snake-kebab "0.4.2"]
                  [de.ubercode.clostache/clostache "1.4.0"]
                  [buddy "2.0.0"]]
-  :plugins [[lein-bump-version "0.1.6"]]
+  :plugins [[lein-bump-version "0.1.6"]
+            [lein-exec "0.3.7"]
+            [lein-cljfmt "0.8.0"]]
   :source-paths ["src" "test"]
   :main ^:skip-aot agent.core
   :target-path "target/%s"
+  :aliases {"agent-version" ["exec" "-e"
+                             "(println (->> \"project.clj\" slurp read-string (drop 2) first))"]
+            "clj-kondo" ["trampoline" "run" "-m" "clj-kondo.main"]}
   :profiles {:uberjar {:aot :all}})
