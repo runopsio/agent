@@ -8,7 +8,9 @@
             [clj-http.client :as http-client]
             [clojure.data.json :as json]
             [clojure.walk :refer [keywordize-keys]]
-            [clostache.parser :as parser])
+            [clostache.parser :as parser]
+            [tracer.honeycomb :refer [with-tracing
+                                      with-tracing-end]])
   (:import java.io.File
            io.sentry.Sentry))
 
@@ -189,12 +191,13 @@
 
 (defn run-task [task]
   (err/err->> task
-              parse-command
-              lock-task
-              get-secrets
-              add-secrets-from-mapping
-              validate-secrets
-              render-script
+              (with-tracing parse-command [:run-agent-task])
+              (with-tracing lock-task [:run-agent-task :lock-task])
+              (with-tracing get-secrets [:run-agent-task :get-secrets])
+              (with-tracing add-secrets-from-mapping [:run-agent-task :add-secrets-from-mapping])
+              (with-tracing validate-secrets [:run-agent-task :validate-secrets])
+              (with-tracing render-script [:run-agent-task :render-script])
+              (with-tracing-end)
               run-command))
 
 (defn parse-command [task]

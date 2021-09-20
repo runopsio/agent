@@ -92,29 +92,33 @@
 ;-----------------------------------------------------------------------------
 ; TaskResponse
 ;-----------------------------------------------------------------------------
-(defrecord TaskResponse-record [id type script secret-provider secret-path secret-mapping config]
+(defrecord TaskResponse-record [config x-b3-parent-span-id id secret-provider script secret-path type secret-mapping x-b3-trace-id]
   pb/Writer
   (serialize [this os]
+    (serdes.core/write-String 7  {:optimize true} (:config this) os)
+    (serdes.core/write-String 9  {:optimize true} (:x-b3-parent-span-id this) os)
     (serdes.core/write-Int32 1  {:optimize true} (:id this) os)
-    (serdes.core/write-String 2  {:optimize true} (:type this) os)
-    (serdes.core/write-String 3  {:optimize true} (:script this) os)
     (serdes.core/write-String 4  {:optimize true} (:secret-provider this) os)
+    (serdes.core/write-String 3  {:optimize true} (:script this) os)
     (serdes.core/write-String 5  {:optimize true} (:secret-path this) os)
+    (serdes.core/write-String 2  {:optimize true} (:type this) os)
     (serdes.core/write-String 6  {:optimize true} (:secret-mapping this) os)
-    (serdes.core/write-String 7  {:optimize true} (:config this) os))
+    (serdes.core/write-String 8  {:optimize true} (:x-b3-trace-id this) os))
   pb/TypeReflection
   (gettype [this]
     "io.grpc.TaskResponse"))
 
-(s/def :io.grpc.TaskResponse/id int?)
-(s/def :io.grpc.TaskResponse/type string?)
-(s/def :io.grpc.TaskResponse/script string?)
-(s/def :io.grpc.TaskResponse/secret-provider string?)
-(s/def :io.grpc.TaskResponse/secret-path string?)
-(s/def :io.grpc.TaskResponse/secret-mapping string?)
 (s/def :io.grpc.TaskResponse/config string?)
-(s/def ::TaskResponse-spec (s/keys :opt-un [:io.grpc.TaskResponse/id :io.grpc.TaskResponse/type :io.grpc.TaskResponse/script :io.grpc.TaskResponse/secret-provider :io.grpc.TaskResponse/secret-path :io.grpc.TaskResponse/secret-mapping :io.grpc.TaskResponse/config ]))
-(def TaskResponse-defaults {:id 0 :type "" :script "" :secret-provider "" :secret-path "" :secret-mapping "" :config "" })
+(s/def :io.grpc.TaskResponse/x-b3-parent-span-id string?)
+(s/def :io.grpc.TaskResponse/id int?)
+(s/def :io.grpc.TaskResponse/secret-provider string?)
+(s/def :io.grpc.TaskResponse/script string?)
+(s/def :io.grpc.TaskResponse/secret-path string?)
+(s/def :io.grpc.TaskResponse/type string?)
+(s/def :io.grpc.TaskResponse/secret-mapping string?)
+(s/def :io.grpc.TaskResponse/x-b3-trace-id string?)
+(s/def ::TaskResponse-spec (s/keys :opt-un [:io.grpc.TaskResponse/config :io.grpc.TaskResponse/x-b3-parent-span-id :io.grpc.TaskResponse/id :io.grpc.TaskResponse/secret-provider :io.grpc.TaskResponse/script :io.grpc.TaskResponse/secret-path :io.grpc.TaskResponse/type :io.grpc.TaskResponse/secret-mapping :io.grpc.TaskResponse/x-b3-trace-id ]))
+(def TaskResponse-defaults {:config "" :x-b3-parent-span-id "" :id 0 :secret-provider "" :script "" :secret-path "" :type "" :secret-mapping "" :x-b3-trace-id "" })
 
 (defn cis->TaskResponse
   "CodedInputStream to TaskResponse"
@@ -122,13 +126,15 @@
   (->> (tag-map TaskResponse-defaults
          (fn [tag index]
              (case index
-               1 [:id (serdes.core/cis->Int32 is)]
-               2 [:type (serdes.core/cis->String is)]
-               3 [:script (serdes.core/cis->String is)]
-               4 [:secret-provider (serdes.core/cis->String is)]
-               5 [:secret-path (serdes.core/cis->String is)]
-               6 [:secret-mapping (serdes.core/cis->String is)]
                7 [:config (serdes.core/cis->String is)]
+               9 [:x-b3-parent-span-id (serdes.core/cis->String is)]
+               1 [:id (serdes.core/cis->Int32 is)]
+               4 [:secret-provider (serdes.core/cis->String is)]
+               3 [:script (serdes.core/cis->String is)]
+               5 [:secret-path (serdes.core/cis->String is)]
+               2 [:type (serdes.core/cis->String is)]
+               6 [:secret-mapping (serdes.core/cis->String is)]
+               8 [:x-b3-trace-id (serdes.core/cis->String is)]
 
                [index (serdes.core/cis->undefined tag is)]))
          is)

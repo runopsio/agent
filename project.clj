@@ -1,6 +1,6 @@
-(defproject agent "0.1.0-SNAPSHOT"
-  :description "FIXME: write description"
-  :url "http://example.com/FIXME"
+(defproject agent "0.1.5"
+  :description "Runops Agent"
+  :url "https://github.com/runops/agent"
   :license {:name "EPL-2.0 OR GPL-2.0-or-later WITH Classpath-exception-2.0"
             :url "https://www.eclipse.org/legal/epl-2.0/"}
   :dependencies [[org.clojure/clojure "1.10.3"]
@@ -17,6 +17,7 @@
 
                  ; monitoring
                  [io.sentry/sentry-logback "5.0.1"]
+                 [io.honeycomb/honeycomb-opentelemetry-sdk "0.4.0"]
 
                  ; logging
                  [cambium "0.8.1"]
@@ -30,6 +31,7 @@
                  [camel-snake-kebab "0.4.2"]
                  [de.ubercode.clostache/clostache "1.4.0"]
                  [buddy "2.0.0"]]
+  :plugins [[lein-bump-version "0.1.6"]]
   :source-paths ["src" "test"]
   :main ^:skip-aot agent.core
   :target-path "target/%s"
