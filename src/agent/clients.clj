@@ -26,10 +26,11 @@
   (swap! grpc-client-atom assoc :grpc grpc-client))
 
 
-(defn- connect []
+(defn- connect
   "Try to connect to gRPC server within 3 seconds.
   If successful, will bind to the stateful grpc-client the client itself
   Other will bind nil"
+  []
   (try
     (deref (grpc.http2/connect {:uri grpc-url
                                 :ssl grpc-ssl
@@ -38,8 +39,9 @@
     (catch Exception e
       (log/warn (format "Could not start gRPC client with error: %s" e)))))
 
-(defn grpc-client-alive? []
+(defn grpc-client-alive?
   "Whether or not there a stateful client and it is NOT_CLOSED"
+  []
   (and (agent.clients/grpc-client)
        (not (.isClosed (:session (.context (agent.clients/grpc-client)))))))
 
@@ -56,7 +58,7 @@
   (log/info (format "Waiting %s seconds..." (:delay data)))
   (Thread/sleep (:delay data)))
 
-(defmethod add-delay false [data])
+(defmethod add-delay false [_])
 
 (defn connect-grpc [data]
   (log/info "Trying to connect to gRPC server...")

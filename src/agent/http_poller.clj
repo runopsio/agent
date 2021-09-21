@@ -21,8 +21,8 @@
                                   :query-params poll-params})
             tasks (map #(cske/transform-keys csk/->kebab-case %) (read-string (:body response)))]
         (when (> (count tasks) 0)
-          (do (log/info (format "found %s task(s) to run" (count tasks)))
-              (doall (pmap #(agent/run-task (assoc % :mode :poll)) tasks)))))
+          (log/info (format "found %s task(s) to run" (count tasks)))
+          (doall (pmap #(agent/run-task (assoc % :mode :poll)) tasks))))
       (catch Exception e
         (Sentry/captureException e (format "failed to poll tasks with error: %s" e))
         (log/error (format "failed to poll tasks with error: %s" e))))))

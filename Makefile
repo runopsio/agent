@@ -1,6 +1,6 @@
 SHORT_NAME ?= agent
 
-MUTABLE_VERSION ?= $(or ${VERSION},${VERSION},latest)
+MUTABLE_VERSION ?= $(shell echo $(or ${GITHUB_REF},${VERSION},latest) | cut -d / -f 3)
 IMMUTABLE_VERSION ?= latest
 
 DOCKER_REGISTRY ?=
@@ -17,15 +17,25 @@ info:
 	@echo "Immutable tag:   ${IMMUTABLE_IMAGE}"
 	@echo "Mutable tag:     ${MUTABLE_IMAGE}"
 
-build: gen-proto
+clj-kondo-lint:
+	lein clj-kondo --lint src/ --config .clj-kondo/config.edn
+
+test:
+	lein test
+
+build:
+	lein bump-version ${MUTABLE_VERSION}
 	lein uberjar
-	docker build -t ${MUTABLE_IMAGE} .
+	docker build --build-arg VERSION=${MUTABLE_VERSION} -t ${MUTABLE_IMAGE} .
 	docker tag ${MUTABLE_IMAGE} ${IMMUTABLE_IMAGE}
 
-docker-immutable-push:
+docker-login:
+	docker login -u="${DOCKER_USERNAME}" -p="${DOCKER_PASSWORD}"
+
+docker-immutable-push: docker-login
 	docker push ${IMMUTABLE_IMAGE}
 
-docker-mutable-push:
+docker-mutable-push: docker-login
 	docker push ${MUTABLE_IMAGE}
 
 docker-push: docker-mutable-push docker-immutable-push

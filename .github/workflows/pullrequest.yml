@@ -1,0 +1,42 @@
+name: Lint / Test
+
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Prepare java
+        uses: actions/setup-java@v2
+        with:
+          distribution: 'zulu'
+          java-version: '8'
+
+      - name: Install clojure tools
+        uses: DeLaGuardo/setup-clojure@3.5
+        with:
+          cli: 1.10.1.693 # Clojure CLI based on tools.deps
+          lein: 2.9.6
+
+      - name: Maven cache
+        uses: actions/cache@v1
+        with:
+          path: /root/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('project.clj') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+        
+      - name: Lein Deps
+        run: lein deps
+
+      - name: Lint Check - clj-kondo
+        run: make clj-kondo-lint
+      
+      - name: Test
+        run: make test
