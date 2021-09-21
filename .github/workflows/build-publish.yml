@@ -36,6 +36,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-maven-
         
+      - name: Docker Login
+        run: make docker-login
+
       - name: Lein Deps
         run: lein deps
   

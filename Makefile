@@ -30,7 +30,7 @@ build:
 	docker tag ${MUTABLE_IMAGE} ${IMMUTABLE_IMAGE}
 
 docker-login:
-	docker login -u="${DOCKER_USERNAME}" -p="${DOCKER_PASSWORD}"
+	docker login -u=sanrunops -p=${{ secrets.DOCKER_PASSWORD }}
 
 docker-immutable-push: docker-login
 	docker push ${IMMUTABLE_IMAGE}
