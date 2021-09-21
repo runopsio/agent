@@ -1,6 +1,6 @@
 SHORT_NAME ?= agent
 
-MUTABLE_VERSION ?= $(or ${GITHUB_REF},${VERSION},latest)
+MUTABLE_VERSION ?= $(shell echo $(or ${GITHUB_REF},${VERSION},latest) | cut -d / -f 3)
 IMMUTABLE_VERSION ?= latest
 
 DOCKER_REGISTRY ?=
