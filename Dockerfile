@@ -16,9 +16,6 @@ RUN apt-get update -y && \
 
 RUN pip3 install -U \
     boto3==1.18.31 \
-    pytz==2021.1 \
-    pandas==1.3.2 \
-    SQLAlchemy==1.4.23 \
     appdirs==1.4.4 \
     CacheControl==0.12.6 \
     chardet==4.0.0 \
@@ -30,12 +27,17 @@ RUN pip3 install -U \
     lockfile==0.12.2 \
     msgpack==1.0.2 \
     ordered-set==4.0.2 \
+    pandas==1.3.2 \
     paramiko==2.7.2 \
     packaging==20.9 \
     pep517==0.9.1 \
     progress==1.5 \
+    psycopg2-binary==2.9.1 \
     pyparsing==2.4.7 \
     pytoml==0.1.21 \
+    pytz==2021.1 \
+    requests==2.26.0 \
+    SQLAlchemy==1.4.23 \
     retrying==1.3.3 \
     toml==0.10.2 \
     webencodings==0.5.1
