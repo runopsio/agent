@@ -32,12 +32,9 @@
                  [camel-snake-kebab "0.4.2"]
                  [de.ubercode.clostache/clostache "1.4.0"]
                  [buddy "2.0.0"]]
-  :plugins [[lein-bump-version "0.1.6"]
-            [lein-exec "0.3.7"]]
+  :plugins [[lein-bump-version "0.1.6"]]
   :source-paths ["src" "test"]
   :main ^:skip-aot agent.core
   :target-path "target/%s"
-  :aliases {"agent-version" ["exec" "-e"
-                             "(println (->> \"project.clj\" slurp read-string (drop 2) first))"]
-            "clj-kondo" ["trampoline" "run" "-m" "clj-kondo.main"]}
+  :aliases {"clj-kondo" ["trampoline" "run" "-m" "clj-kondo.main"]}
   :profiles {:uberjar {:aot :all}})
