@@ -29,9 +29,6 @@ build:
 	docker build --build-arg VERSION=${MUTABLE_VERSION} -t ${MUTABLE_IMAGE} .
 	docker tag ${MUTABLE_IMAGE} ${IMMUTABLE_IMAGE}
 
-docker-login:
-	docker login -u=sanrunops -p=${{ secrets.DOCKER_PASSWORD }}
-
 docker-immutable-push: docker-login
 	docker push ${IMMUTABLE_IMAGE}
 

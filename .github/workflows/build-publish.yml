@@ -37,7 +37,7 @@ jobs:
             ${{ runner.os }}-maven-
         
       - name: Docker Login
-        run: make docker-login
+        run: docker login -u=${{ secrets.DOCKER_USERNAME }} -p=${{ secrets.DOCKER_PASSWORD }}
 
       - name: Lein Deps
         run: lein deps
