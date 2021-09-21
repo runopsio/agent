@@ -1,5 +1,5 @@
 
-name: Build / Publish
+name: Publish
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
     - '*'
 
 jobs:
-  lint:
+  build-publish:
     runs-on: ubuntu-latest
 
     steps:
