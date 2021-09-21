@@ -49,5 +49,5 @@ jobs:
         run: make build
       
       - name: Publish
-        run: make docker-mutable-push
+        run: make docker-push
   

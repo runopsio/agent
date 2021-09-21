@@ -29,10 +29,10 @@ build:
 	docker build --build-arg VERSION=${MUTABLE_VERSION} -t ${MUTABLE_IMAGE} .
 	docker tag ${MUTABLE_IMAGE} ${IMMUTABLE_IMAGE}
 
-docker-immutable-push: docker-login
+docker-immutable-push:
 	docker push ${IMMUTABLE_IMAGE}
 
-docker-mutable-push: docker-login
+docker-mutable-push:
 	docker push ${MUTABLE_IMAGE}
 
 docker-push: docker-mutable-push docker-immutable-push
