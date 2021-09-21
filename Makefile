@@ -20,11 +20,7 @@ info:
 clj-kondo-lint:
 	lein clj-kondo --lint src/ --config .clj-kondo/config.edn
 
-docker-login:
-	docker login -u="${DOCKER_USERNAME}" -p="${DOCKER_PASSWORD}"
-
 test:
-	docker-login
 	lein test
 
 build:
@@ -32,6 +28,9 @@ build:
 	lein uberjar
 	docker build --build-arg VERSION=${MUTABLE_VERSION} -t ${MUTABLE_IMAGE} .
 	docker tag ${MUTABLE_IMAGE} ${IMMUTABLE_IMAGE}
+
+docker-login:
+	docker login -u="${DOCKER_USERNAME}" -p="${DOCKER_PASSWORD}"
 
 docker-immutable-push: docker-login
 	docker push ${IMMUTABLE_IMAGE}
