@@ -20,14 +20,14 @@ info:
 clj-kondo-lint:
 	lein clj-kondo --lint src/ --config .clj-kondo/config.edn
 
-test:
-	lein test
-
 docker-login:
 	docker login -u="${DOCKER_USERNAME}" -p="${DOCKER_PASSWORD}"
 
-build:
+test:
 	docker-login
+	lein test
+
+build:
 	lein bump-version ${MUTABLE_VERSION}
 	lein uberjar
 	docker build --build-arg VERSION=${MUTABLE_VERSION} -t ${MUTABLE_IMAGE} .
