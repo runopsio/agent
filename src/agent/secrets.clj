@@ -41,11 +41,10 @@
 (defmulti fetch (fn [task] (:secret-provider task)))
 
 ;; default
-(defmethod fetch :default
+(defmethod fetch :default [task]
   "This method does not use any provider, and expects that the :config key is present in the
   task definition. If not, an empty :secrets will be returned. If the command require any secrets,
   then execution will fail miserably..."
-  [task]
   (log/info (format "Fetching secrets from task config for task id: %s" (:id task)))
   (err/err->> task
               parse-task-config))

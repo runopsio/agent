@@ -6,8 +6,8 @@
                                   :exclude [clojure.string
                                             clojure.walk]}
            :unused-namespace {:exclude [agent.clients]}
-           :unresolved-symbol {:report-duplicates true
-                               :exclude []}
+           :misplaced-docstring {:level :info}
+           :unresolved-symbol {:report-duplicates true}
            :not-empty? {:level :off}}
  :output {:exclude-files ["src/io/grpc.cljc"
                           "src/io/grpc/Agent/client.cljc"]}}

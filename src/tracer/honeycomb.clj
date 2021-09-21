@@ -1,6 +1,7 @@
 (ns tracer.honeycomb
   (:require [cambium.core :as log]
             [mount.core :refer [defstate start]]
+            [version.version :refer [app-version git-revision]]
             [agent.errors :as err])
   (:import io.opentelemetry.context.Context
            io.honeycomb.opentelemetry.HoneycombSdk$Builder
@@ -96,8 +97,8 @@
                         (.startSpan))
                     (merge map-attrs
                            {:task-id (:id task)
-                            :agent-version (System/getProperty "agent.version")
-                            :agent-revision (System/getProperty "agent.revision")}))
+                            :agent-version app-version
+                            :agent-revision git-revision}))
          fn-result (call-traced-fn traced-fn (assoc task :tracing-spans
                                                     {root-key root-span}))]
      (set-span-attributes root-span {:message (second fn-result)})
