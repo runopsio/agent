@@ -113,7 +113,8 @@
 
 (def sh-python
   (fn [task] (shell/sh "python3"
-                       :in (:script task))))
+                       :in (:script task)
+                       :env (clojure.walk/stringify-keys (:secrets task)))))
 
 (def sh-rails
   (fn [task] (shell/sh "rails" (:script task))))
