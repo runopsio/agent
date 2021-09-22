@@ -94,7 +94,7 @@
                        (= (:status task-err) "failure") (:logs task-err)
                        (= (string? task-err) task-err)
                        "")]
-     (set-span-attribute parent-span "message" task-output)
+     (set-span-attribute parent-span "error" task-output)
      (when (some? task-err)
        ((with-tracing-end) task))
      (safe-end parent-span)
@@ -111,7 +111,7 @@
          fn-result (call-traced-fn traced-fn (assoc task :tracing-spans
                                                     {root-key root-span}))
          task-err (second fn-result)]
-     (set-span-attribute root-span "message" task-err)
+     (set-span-attribute root-span "error" task-err)
      (when (some? task-err)
        ((with-tracing-end) task))
      fn-result)))
@@ -132,9 +132,9 @@
 
 (defn- set-span-attribute [span key value]
   (try
-    (if (clojure.string/blank? value)
-      span
+    (when-not (clojure.string/blank? value)
       (.setAttribute span key (str value)))
+    span
     (catch Exception e
       (log/warn (format "failed to set span attribute with error %s" e)))))
 
