@@ -29,6 +29,9 @@ build:
 	docker build --build-arg VERSION=${MUTABLE_VERSION} -t ${MUTABLE_IMAGE} .
 	docker tag ${MUTABLE_IMAGE} ${IMMUTABLE_IMAGE}
 
+release:
+	./scripts/gh-release.sh
+
 docker-immutable-push:
 	docker push ${IMMUTABLE_IMAGE}
 

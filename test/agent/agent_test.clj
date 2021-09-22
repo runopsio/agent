@@ -27,3 +27,11 @@
       (is (= {:PG_HOST "127.0.0.1"}
              (select-keys
               (:secrets (first task)) [:PG_HOST]))))))
+
+(deftest filter-optional-shell-args
+  (testing "must filter optional args"
+    (let [args (@#'a/filter-optional-shell-args {"-s" "," "-h" "1" "-W" true})]
+      (is (= args ["-s" "," "-h" "1" "-W"]))))
+  (testing "must skip optional args when values are nil or empty"
+    (let [args (@#'a/filter-optional-shell-args {"-s" "" "-h" "1" "-W" nil})]
+      (is (= args ["-h" "1"])))))
