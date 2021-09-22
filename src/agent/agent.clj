@@ -88,7 +88,7 @@
                  outcome))))
 
 (def sh-postgres
-  (fn [task] (shell/sh "/usr/bin/psql"
+  (fn [task] (shell/sh "psql"
                        "-A"
                        (format "-F%s" (or (:FIELD_SEPARATOR (:secrets task)) "\t"))
                        "-h" (:PG_HOST (:secrets task))
@@ -96,11 +96,12 @@
                        "-d" (:PG_DB (:secrets task))
                        "-p" (str (or (:PG_PORT (:secrets task)) "5432"))
                        "-v" "ON_ERROR_STOP=1"
-                       :env {"PGPASSWORD" (:PG_PASS (:secrets task))}
+                       :env {"PGPASSWORD" (:PG_PASS (:secrets task))
+                             "PATH" (System/getenv "PATH")}
                        :in (:script task))))
 
 (def sh-postgres-csv
-  (fn [task] (shell/sh "/usr/bin/psql"
+  (fn [task] (shell/sh "psql"
                        "-A"
                        (format "-F%s" (or (:FIELD_SEPARATOR (:secrets task)) ","))
                        "-h" (:PG_HOST (:secrets task))
@@ -108,7 +109,8 @@
                        "-d" (:PG_DB (:secrets task))
                        "-p" (str (or (:PG_PORT (:secrets task)) "5432"))
                        "-v" "ON_ERROR_STOP=1"
-                       :env {"PGPASSWORD" (:PG_PASS (:secrets task))}
+                       :env {"PGPASSWORD" (:PG_PASS (:secrets task))
+                             "PATH" (System/getenv "PATH")}
                        :in (:script task))))
 
 (def sh-python
@@ -198,8 +200,8 @@
               (with-tracing add-secrets-from-mapping [:run-agent-task :add-secrets-from-mapping])
               (with-tracing validate-secrets [:run-agent-task :validate-secrets])
               (with-tracing render-script [:run-agent-task :render-script])
-              (with-tracing-end)
-              run-command))
+              (with-tracing run-command [:run-agent-task :run-command])
+              (with-tracing-end)))
 
 (defn parse-command [task]
   (if-let [command ((keyword (:type task)) commands)]

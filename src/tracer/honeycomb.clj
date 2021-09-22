@@ -29,6 +29,7 @@
 (declare trace-task
          safe-end
          set-span-attributes
+         set-span-attribute
          tracer
          call-traced-fn)
 
@@ -84,9 +85,17 @@
          fn-result (call-traced-fn traced-fn
                                    (assoc task :tracing-spans
                                           (merge (:tracing-spans task)
-                                                 {parent-key parent-span})))]
-     (set-span-attributes parent-span {:message (second fn-result)})
-     (when (some? (second fn-result))
+                                                 {parent-key parent-span})))
+         task-err (second fn-result)
+         ;; the traced-fn could output sometimes [nil <task>] which
+         ;; breaks the pattern of [nil <err>],
+         ;; this is an attempt to normalize the output.
+         task-output (cond
+                       (= (:status task-err) "failure") (:logs task-err)
+                       (= (string? task-err) task-err)
+                       "")]
+     (set-span-attribute parent-span "error" task-output)
+     (when (some? task-err)
        ((with-tracing-end) task))
      (safe-end parent-span)
      fn-result))
@@ -100,9 +109,10 @@
                             :agent-version app-version
                             :agent-revision git-revision}))
          fn-result (call-traced-fn traced-fn (assoc task :tracing-spans
-                                                    {root-key root-span}))]
-     (set-span-attributes root-span {:message (second fn-result)})
-     (when (some? (second fn-result))
+                                                    {root-key root-span}))
+         task-err (second fn-result)]
+     (set-span-attribute root-span "error" task-err)
+     (when (some? task-err)
        ((with-tracing-end) task))
      fn-result)))
 
@@ -122,7 +132,9 @@
 
 (defn- set-span-attribute [span key value]
   (try
-    (.setAttribute span key (str value))
+    (when-not (clojure.string/blank? value)
+      (.setAttribute span key (str value)))
+    span
     (catch Exception e
       (log/warn (format "failed to set span attribute with error %s" e)))))
 
