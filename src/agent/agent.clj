@@ -14,6 +14,20 @@
   (:import java.io.File
            io.sentry.Sentry))
 
+(defn- filter-optional-shell-args
+  "Returns a vector of arguments filtering for non empty values.
+  Bare arguments are accepted passing values as true, e.g.:
+
+  (filter-optional-shell-args {-H 127.0.0.1 -W true})
+  >>> [-H 127.0.0.1 -W]"
+  [map-args]
+  (remove true?
+          (into [] (apply concat
+                          (filter
+                           #(not (clojure.string/blank?
+                                  (str (second %))))
+                           map-args)))))
+
 (def sh-bash
   (fn [task] (let [args (clojure.string/split (:script task) #" ")]
                (apply shell/sh args))))
@@ -113,6 +127,21 @@
                              "PATH" (System/getenv "PATH")}
                        :in (:script task))))
 
+(defn sh-mssql [task]
+  (let [secrets (:secrets task)
+        field-separator (:FIELD_SEPARATOR secrets)
+        field-separator? (not (clojure.string/blank? field-separator))]
+    (apply shell/sh (into ["sqlcmd" "-b"
+                           "-S" (:MSSQL_CONNECTION_URI secrets)
+                           "-U" (:MSSQL_USER secrets)
+                           "-P" (:MSSQL_PASS secrets)
+                           "-d" (:MSSQL_DB secrets)
+                           "-Q" (:script task)]
+                          (filter-optional-shell-args
+                           {"-s" field-separator
+                            "-h" (when field-separator? "-1")
+                            "-W" (when field-separator? true)})))))
+
 (def sh-python
   (fn [task] (shell/sh "python3"
                        :in (:script task)
@@ -136,7 +165,6 @@
                (.delete kube-file)
                sh)))
 
-
 (def commands
   {:bash              sh-bash
    :hashicorp-vault   sh-hashicorp-vault
@@ -148,6 +176,7 @@
    :mysql-csv         sh-mysql-csv
    :postgres          sh-postgres
    :postgres-csv      sh-postgres-csv
+   :sql-server        sh-mssql
    :python            sh-python
    :rails             sh-rails
    :rails-console     sh-rails-console
@@ -261,6 +290,7 @@
          mongodb-validation
          mysql-validation
          postgres-validation
+         mssql-validation
          vault-validation
          rails-console-k8s-validation)
 
@@ -290,6 +320,9 @@
 
 (defmethod validate-secrets "postgres-csv" [task]
   (postgres-validation task))
+
+(defmethod validate-secrets "sql-server" [task]
+  (mssql-validation task))
 
 (defmethod validate-secrets "hashicorp-vault" [task]
   (vault-validation task))
@@ -351,6 +384,18 @@
       (do (log/warn "Postgres type requires all the following secrets: PG_HOST, PG_USER, PG_PASS and PG_DB")
           (Sentry/captureMessage "Postgres type requires all the following secrets: PG_HOST, PG_USER, PG_PASS and PG_DB")
           (fail-task-with-message task "Postgres type requires all the following secrets: PG_HOST, PG_USER, PG_PASS and PG_DB"))
+      [task nil])))
+
+(defn mssql-validation [task]
+  (let [secrets (:secrets task)]
+    (if (or (empty? (:MSSQL_CONNECTION_URI secrets))
+            (empty? (:MSSQL_USER secrets))
+            (empty? (:MSSQL_PASS secrets))
+            (empty? (:MSSQL_DB secrets)))
+      (let [msg-err "sql-server type requires all the following secrets: MSSQL_CONNECTION_URI, MSSQL_USER, MSSQL_PASS and MSSQL_DB"]
+        (log/warn msg-err)
+        (Sentry/captureMessage msg-err)
+        (fail-task-with-message task msg-err))
       [task nil])))
 
 (defn rails-console-k8s-validation [task]

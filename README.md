@@ -29,9 +29,37 @@ $ lein run
 lein test
 ```
 
-## Build / Release image
+## Build
 
 > In order to build the agent you'll need [protoc](https://grpc.io/docs/protoc-installation/) and [protoc-plugin](https://github.com/protojure/protoc-plugin#installation)
+
+```sh
+make gen-proto
+lein uberjar
+```
+
+## Release
+
+- Install [GH cli](https://cli.github.com/)
+
+The release process is automated, the flow of development should be:
+
+1. Run the dev server and make your changes
+2. Commit/Push to a new branch and open a GitHub Pull Request
+3. Wait for tests and lint to complete and ask for a revision of an enginner
+4. Squash/Merge to main
+5. Create a new release running locally the command below
+
+```sh
+# follow the prompt instructions
+make gh-release
+```
+
+It will release a new GitHub release based on the main branch automatically.
+After it finishes building/pushing to the docker hub registry, the image could be fetched
+using `runops/agent:<tag-chosen>`.
+
+## Manual Build / Release
 
 ```sh
 VERSION=0.1.0 make build
@@ -46,4 +74,5 @@ VERSION=0.1.0 make docker-mutable-push
 
 ## Run image
 $ docker run --rm -e TOKEN={token} runops/agent:0.1.0
+
 
