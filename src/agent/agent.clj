@@ -132,7 +132,7 @@
         field-separator (:FIELD_SEPARATOR secrets)
         field-separator? (not (clojure.string/blank? field-separator))]
     (apply shell/sh (into ["sqlcmd" "-b"
-                           "-S" (:MSSQL_SERVER secrets)
+                           "-S" (:MSSQL_CONNECTION_URI secrets)
                            "-U" (:MSSQL_USER secrets)
                            "-P" (:MSSQL_PASS secrets)
                            "-d" (:MSSQL_DB secrets)
@@ -388,11 +388,11 @@
 
 (defn mssql-validation [task]
   (let [secrets (:secrets task)]
-    (if (or (empty? (:MSSQL_SERVER secrets))
+    (if (or (empty? (:MSSQL_CONNECTION_URI secrets))
             (empty? (:MSSQL_USER secrets))
             (empty? (:MSSQL_PASS secrets))
             (empty? (:MSSQL_DB secrets)))
-      (let [msg-err "sql-server type requires all the following secrets: MSSQL_SERVER, MSSQL_USER, MSSQL_PASS and MSSQL_DB"]
+      (let [msg-err "sql-server type requires all the following secrets: MSSQL_CONNECTION_URI, MSSQL_USER, MSSQL_PASS and MSSQL_DB"]
         (log/warn msg-err)
         (Sentry/captureMessage msg-err)
         (fail-task-with-message task msg-err))

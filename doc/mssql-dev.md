@@ -49,9 +49,9 @@ sqlcmd -S 127.0.0.1 -U SA -P '1U7eSGn%Gk1' -i /tmp/mssql-test-db.sql
 export TAGS=local
 # get a token from the production environment
 export TOKEN=
-export MSSQL_CONFIG='{"MSSQL_SERVER": "127.0.0.1", "MSSQL_USER": "SA", "MSSQL_PASS": "1U7eSGn%Gk1", "MSSQL_DB": "TestDB"}'
+export MSSQL_CONFIG='{"MSSQL_CONNECTION_URI": "127.0.0.1", "MSSQL_USER": "SA", "MSSQL_PASS": "1U7eSGn%Gk1", "MSSQL_DB": "TestDB"}'
 # the above configuration will return a csv output
-# export MSSQL_CONFIG='{"MSSQL_SERVERNAME": "127.0.0.1", "MSSQL_USER": "SA", "MSSQL_PASS": "1U7eSGn%Gk1", "MSSQL_DB": "TestDB", "FIELD_SEPARATOR" ","}'
+# export MSSQL_CONFIG='{"MSSQL_CONNECTION_URI": "127.0.0.1", "MSSQL_USER": "SA", "MSSQL_PASS": "1U7eSGn%Gk1", "MSSQL_DB": "TestDB", "FIELD_SEPARATOR" ","}'
 ```
 
 4. Run the agent
@@ -69,7 +69,7 @@ runops targets create \
   --name mssql-local \
   --type sql-server \
   --secret_provider env-var \
-  --secret_mapping '{"MSSQL_SERVER": "MSSQL_SERVERNAME"}' \
+  --secret_mapping '{"MSSQL_CONNECTION_URI": "MSSQL_SERVERNAME"}' \
   --secret_path "MSSQL_CONFIG"
 
 runops tasks create -t mssql-local -s 'SELECT * FROM Inventory WHERE quantity > 152'
