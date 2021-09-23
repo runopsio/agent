@@ -321,7 +321,7 @@
 (defmethod validate-secrets "postgres-csv" [task]
   (postgres-validation task))
 
-(defmethod validate-secrets "mssql" [task]
+(defmethod validate-secrets "sql-server" [task]
   (mssql-validation task))
 
 (defmethod validate-secrets "hashicorp-vault" [task]

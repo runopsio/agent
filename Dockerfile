@@ -1,18 +1,49 @@
-FROM python:3.8-slim
+FROM ubuntu:focal-20210827
 MAINTAINER RunOps first@runops.io
 
 ARG VERSION
 
+ENV DEBIAN_FRONTEND=noninteractive
+ENV ACCEPT_EULA=y
+ENV PATH="/opt/mssql-tools/bin:${PATH}"
+
+# http://bugs.python.org/issue19846
+# > At the moment, setting "LANG=C" on a Linux system *fundamentally breaks Python 3*, and that's not OK.
+ENV LANG C.UTF-8
+
 RUN apt-get update -y && \
     apt-get install -y \
+        python3-pip \
+        python3-dev \
         apt-utils \
-        software-properties-common \
         curl \
         gnupg \
         gnupg2 \
+        lsb-release
+
+RUN echo "deb http://apt.postgresql.org/pub/repos/apt/ focal-pgdg main" | tee /etc/apt/sources.list.d/pgdg.list && \
+    echo "deb [arch=amd64,arm64] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/5.0 multiverse" | tee /etc/apt/sources.list.d/mongodb-org-5.0.list && \
+    echo "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/hashicorp.list && \
+    curl -sL https://packages.microsoft.com/config/ubuntu/20.04/prod.list | tee /etc/apt/sources.list.d/msprod.list && \
+    curl -sL https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - && \
+    curl -sL https://www.mongodb.org/static/pgp/server-5.0.asc | apt-key add - && \
+    curl -sL https://apt.releases.hashicorp.com/gpg | apt-key add - && \
+    curl -sL https://packages.microsoft.com/keys/microsoft.asc | apt-key add -
+
+RUN apt-get update -y && \
+    apt-get install -y \
+        mongodb-org-tools mongodb-org-shell libyaml-cpp0.6 \
+        vault=1.5.9 libcap2-bin \
         openjdk-11-jre \
         default-mysql-client \
-        postgresql-client-13
+        postgresql-client-13 \
+        mssql-tools unixodbc-dev && \
+        rm -rf /var/lib/apt/lists/*
+
+RUN setcap cap_ipc_lock= /usr/bin/vault && \
+    ln -s /usr/bin/vault /usr/sbin/vault && \
+    curl -L "https://dl.k8s.io/release/v1.22.1/bin/linux/amd64/kubectl" -o /usr/local/bin/kubectl && \
+    chmod 755 /usr/local/bin/kubectl
 
 RUN pip3 install -U \
     boto3==1.18.31 \
@@ -41,25 +72,6 @@ RUN pip3 install -U \
     retrying==1.3.3 \
     toml==0.10.2 \
     webencodings==0.5.1
-
-# mongodb
-RUN curl -s https://www.mongodb.org/static/pgp/server-4.0.asc | apt-key add -
-RUN echo "deb [ arch=amd64 ] https://repo.mongodb.org/apt/ubuntu bionic/mongodb-org/4.0 multiverse" | tee /etc/apt/sources.list.d/mongodb-org-4.0.list && \
-    apt-get update -y && \
-    apt-get install -y mongodb-org libyaml-cpp0.6
-
-# vault
-RUN curl -fsSL https://apt.releases.hashicorp.com/gpg | apt-key add -
-RUN apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main" && \
-    apt-get update && apt-get install -y vault=1.5.9 libcap2-bin && \
-    setcap cap_ipc_lock= /usr/bin/vault && \
-    ln -s /usr/bin/vault /usr/sbin/vault # to maintain compatibility
-
-# kubectl
-RUN curl -L "https://dl.k8s.io/release/v1.22.1/bin/linux/amd64/kubectl" -o /usr/local/bin/kubectl && \
-    chmod 755 /usr/local/bin/kubectl
-
-RUN rm -rf /var/lib/apt/lists/*
 
 ADD target/uberjar/agent-$VERSION-standalone.jar /agent/app.jar
 
