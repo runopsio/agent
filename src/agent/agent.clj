@@ -139,8 +139,8 @@
                            "-Q" (:script task)]
                           (filter-optional-shell-args
                            {"-s" field-separator
-                            "-h" (if field-separator? "-1" nil)
-                            "-W" (if field-separator? true nil)})))))
+                            "-h" (when field-separator? "-1")
+                            "-W" (when field-separator? true)})))))
 
 (def sh-python
   (fn [task] (shell/sh "python3"
