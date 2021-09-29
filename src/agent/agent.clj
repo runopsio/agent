@@ -165,6 +165,40 @@
                (.delete kube-file)
                sh)))
 
+(defn- aws-ecs-exec
+  "Execute commands in an ECS container, to use this function
+  the AWS command line and AWS Session Manager Plugin must be installed.
+  See: https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html"
+  [command task]
+  (let [secrets (:secrets task)]
+    ;; https://github.com/aws/amazon-ssm-agent/issues/354#issuecomment-817274498
+    ;; Non silent debug output will be show along with the stdout:
+    ;; https://github.com/aws/amazon-ssm-agent/issues/358
+    (shell/sh "unbuffer" "aws" "ecs" "execute-command" "--interactive"
+              "--cluster" (:ECS_CLUSTER secrets)
+              "--task" (:ECS_TASK_ID secrets)
+              "--container" (:ECS_CONTAINER secrets)
+              "--command" command
+              :env {"PATH" (System/getenv "PATH")
+                    "HOME" (System/getenv "HOME") ;; required by unbuffer
+                    "AWS_ACCESS_KEY_ID" (:ECS_AWS_ACCESS_KEY_ID secrets)
+                    "AWS_SECRET_ACCESS_KEY" (:ECS_AWS_SECRET_ACCESS_KEY secrets)
+                    "AWS_REGION" (:ECS_AWS_REGION secrets)})))
+
+(defn- sh-rails-console-ecs [task]
+  (let [base64-script (-> (java.util.Base64/getEncoder)
+                          (.encodeToString (.getBytes (str (:script task)))))
+        ;; pass the script as base64 and decode inside the container
+        ;; which will prevent character escaping issues. Rails was used to no rely
+        ;; on local dependencies tools like base64.
+        ecs-command (format
+                     (str "/bin/sh -c \""
+                          "DISABLE_SPRING=1 rails runner 'require \"'\"base64\"'\"; puts Base64.decode64(\"'\"%s\"'\")' "
+                          "> /tmp/runops-script && DISABLE_SPRING=1 rails runner /tmp/runops-script"
+                          "\"")
+                     base64-script)]
+    (aws-ecs-exec ecs-command task)))
+
 (def commands
   {:bash              sh-bash
    :hashicorp-vault   sh-hashicorp-vault
@@ -180,7 +214,8 @@
    :python            sh-python
    :rails             sh-rails
    :rails-console     sh-rails-console
-   :rails-console-k8s sh-rails-console-k8s})
+   :rails-console-k8s sh-rails-console-k8s
+   :rails-console-ecs sh-rails-console-ecs})
 
 (defmulti webhook (fn [task] (:mode task)))
 (defmethod webhook :grpc [task]
@@ -292,7 +327,8 @@
          postgres-validation
          mssql-validation
          vault-validation
-         rails-console-k8s-validation)
+         rails-console-k8s-validation
+         rails-console-ecs-validation)
 
 (defmethod validate-secrets :default [task]
   [task nil])
@@ -329,6 +365,9 @@
 
 (defmethod validate-secrets "rails-console-k8s" [task]
   (rails-console-k8s-validation task))
+
+(defmethod validate-secrets "rails-console-ecs" [task]
+  (rails-console-ecs-validation task))
 
 (defn render-script [task]
   [(assoc task :script (parser/render (:script task) (:secrets task))) nil])
@@ -406,6 +445,20 @@
       (do (log/warn "Rails-console-k8s type requires KUBE_CONFIG_DATA, NAMESPACE and DEPLOYMENT secret")
           (Sentry/captureMessage "Rails-console-k8s type requires KUBE_CONFIG_DATA, NAMESPACE and DEPLOYMENT secret")
           (fail-task-with-message task "Rails-console-k8s type requires KUBE_CONFIG_DATA, NAMESPACE and DEPLOYMENT secret"))
+      [task nil])))
+
+(defn rails-console-ecs-validation [task]
+  (let [secrets (:secrets task)]
+    (if (or (empty? (:ECS_CLUSTER secrets))
+            (empty? (:ECS_TASK_ID secrets))
+            (empty? (:ECS_CONTAINER secrets))
+            (empty? (:ECS_AWS_ACCESS_KEY_ID secrets))
+            (empty? (:ECS_AWS_SECRET_ACCESS_KEY secrets))
+            (empty? (:ECS_AWS_REGION secrets)))
+      (let [msg-err "Rails-console-k8s type requires ECS_CLUSTER, ECS_TASK_ID, ECS_CONTAINER, ECS_AWS_ACCESS_KEY_ID, ECS_AWS_SECRET_ACCESS_KEY and ECS_AWS_REGION secret"]
+        (log/warn msg-err)
+        (Sentry/captureMessage msg-err)
+        (fail-task-with-message task msg-err))
       [task nil])))
 
 (defn vault-validation [task]
