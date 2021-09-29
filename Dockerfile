@@ -7,6 +7,8 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV ACCEPT_EULA=y
 ENV PATH="/opt/mssql-tools/bin:${PATH}"
 
+ADD checksums/* /tmp/
+
 # http://bugs.python.org/issue19846
 # > At the moment, setting "LANG=C" on a Linux system *fundamentally breaks Python 3*, and that's not OK.
 ENV LANG C.UTF-8
@@ -19,7 +21,26 @@ RUN apt-get update -y && \
         curl \
         gnupg \
         gnupg2 \
+        groff \
+        unzip \
+        expect \
         lsb-release
+
+# kubectl / aws-cli / aws-session-manager
+RUN curl -sL "https://dl.k8s.io/release/v1.22.1/bin/linux/amd64/kubectl" -o kubectl && \
+        sha256sum -c /tmp/checksum-kubectl.txt --ignore-missing --strict && \
+        chmod 755 kubectl && \
+        mv kubectl /usr/local/bin/kubectl && \
+    curl -sL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64-2.2.42.zip" -o awscli-exe-linux-x86_64-2.2.42.zip && \
+        sha256sum -c /tmp/checksum-aws-cli.txt --ignore-missing --strict && \
+        unzip -q awscli-exe-linux-x86_64-2.2.42.zip && \
+        aws/install && \
+        aws --version && \
+        rm -rf aws && \
+    curl -sL "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb" -o session-manager-plugin.deb && \
+        sha256sum -c /tmp/checksum-aws-sess-manager-plugin.txt --ignore-missing --strict && \
+        dpkg -i session-manager-plugin.deb && \
+        rm -f /tmp/* session-manager-plugin.deb
 
 RUN echo "deb http://apt.postgresql.org/pub/repos/apt/ focal-pgdg main" | tee /etc/apt/sources.list.d/pgdg.list && \
     echo "deb [arch=amd64,arm64] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/5.0 multiverse" | tee /etc/apt/sources.list.d/mongodb-org-5.0.list && \
@@ -38,12 +59,9 @@ RUN apt-get update -y && \
         default-mysql-client \
         postgresql-client-13 \
         mssql-tools unixodbc-dev && \
-        rm -rf /var/lib/apt/lists/*
-
-RUN setcap cap_ipc_lock= /usr/bin/vault && \
-    ln -s /usr/bin/vault /usr/sbin/vault && \
-    curl -L "https://dl.k8s.io/release/v1.22.1/bin/linux/amd64/kubectl" -o /usr/local/bin/kubectl && \
-    chmod 755 /usr/local/bin/kubectl
+        rm -rf /var/lib/apt/lists/* && \
+        setcap cap_ipc_lock= /usr/bin/vault && \
+        ln -s /usr/bin/vault /usr/sbin/vault
 
 RUN pip3 install -U \
     boto3==1.18.31 \
