@@ -55,7 +55,7 @@
 (defmulti add-delay (fn [data] (not (nil? (:delay data)))))
 
 (defmethod add-delay true [data]
-  (log/info (format "Waiting %s seconds..." (:delay data)))
+  (log/info (format "Waiting %s milliseconds..." (:delay data)))
   (Thread/sleep (:delay data)))
 
 (defmethod add-delay false [_])

@@ -20,8 +20,7 @@
                  [io.honeycomb/honeycomb-opentelemetry-sdk "0.4.0"]
 
                  ; logging
-                 [cambium "0.8.1"]
-                 [cambium/cambium.core "1.0.0"]
+                 [cambium/cambium.core "1.1.0"]
                  [cambium/cambium.codec-cheshire "1.0.0"]
                  [cambium/cambium.logback.json "0.4.4"]
 

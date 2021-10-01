@@ -25,10 +25,12 @@
 
 (defn when-closed [future-to-watch callback]
   (future (callback
-            (try
-              @future-to-watch
-              (catch Exception e
-                (log/warn (format "subscription ended with message: %s" (:message (ex-data (.getCause e))))))))))
+           (try
+             @future-to-watch
+             (catch Exception e
+               (log/warn (format "subscription ended with message:%s cause:%s"
+                                 (.getMessage e)
+                                 (:message (ex-data (.getCause e))))))))))
 
 (defn subscribe []
   (subscription-channel! (async/chan 1))
