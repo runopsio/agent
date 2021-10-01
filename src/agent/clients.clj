@@ -10,6 +10,7 @@
 (def token (System/getenv "TOKEN"))
 (def api-url (or (System/getenv "API_URL") "https://api.runops.io"))
 (def grpc-url (or (System/getenv "GRPC_URL") "https://api.runops.io:8443"))
+(def disable-aws-secret-manager (= (System/getenv "AWS_SECRET_MANAGER") "false"))
 (def grpc-ssl (Boolean/valueOf (or (System/getenv "GRPC_SSL") "true")))
 
 (defn decode-base64 [str]
@@ -75,12 +76,14 @@
 
 (defn aws-client-start []
   (try
-    (SecretsManagerClient/create)
+    (when-not disable-aws-secret-manager
+      (log/info "Initializing AWS Secret Manager ...")
+      (SecretsManagerClient/create))
     (catch Exception e
       (log/warn (format "Could not start AWS client with error: %s" e)))))
 
 (defn aws-client-stop []
   (try
-    (.close aws-client)
+    (when-not disable-aws-secret-manager (.close aws-client))
     (catch Exception e
       (log/warn (format "Could not close AWS client with error: %s" e)))))
