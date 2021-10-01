@@ -23,11 +23,19 @@
         (when (> (count tasks) 0)
           (log/info (format "found %s task(s) to run" (count tasks)))
           (doall (pmap #(agent/run-task (assoc % :mode :poll)) tasks))))
-      (catch Exception e
+      (catch java.io.EOFException e
+        (log/error (format "failed to poll tasks with error: %s" e))
         (Sentry/captureException e (format "failed to poll tasks with error: %s" e))
-        (log/error (format "failed to poll tasks with error: %s" e))))))
+        ;; this is a workaround to make agent resilient to network issues
+        ;; we saw this issue happening on dock infrastracture.
+        (when (clojure.string/includes? (str (.getMessage e)) "SSL peer shut down incorrectly")
+          (log/warn "agent force shutdown due to connection issues")
+          (System/exit 1)))
+      (catch Exception e
+        (log/error (format "failed to poll tasks with error: %s" e))
+        (Sentry/captureException e (format "failed to poll tasks with error: %s" e))))))
 
-(def poll-interval 1000)
+(def poll-interval (* 10 1000))
 
 (defn poll []
   (log/info "Starting task poller...")
