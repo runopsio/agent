@@ -193,8 +193,10 @@
         ;; on local dependencies tools like base64.
         ecs-command (format
                      (str "/bin/sh -c \""
-                          "DISABLE_SPRING=1 rails runner 'require \"'\"base64\"'\"; puts Base64.decode64(\"'\"%s\"'\")' "
-                          "> /tmp/runops-script && DISABLE_SPRING=1 rails runner /tmp/runops-script"
+                          (when (get-in task [:secrets :ECS_DEBUG]) "set -x; ")
+                          "DISABLE_SPRING=1 rails runner 'require \"'\"base64\"'\";"
+                          "File.write(\"'\"/tmp/runops-script\"'\", Base64.decode64(\"'\"%s\"'\"))'"
+                          "&& DISABLE_SPRING=1 rails runner /tmp/runops-script"
                           "\"")
                      base64-script)]
     (aws-ecs-exec ecs-command task)))
