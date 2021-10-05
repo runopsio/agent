@@ -145,7 +145,8 @@
 (def sh-python
   (fn [task] (shell/sh "python3"
                        :in (:script task)
-                       :env (clojure.walk/stringify-keys (:secrets task)))))
+                       :env (assoc (clojure.walk/stringify-keys (:secrets task))
+                                   :PATH (System/getenv "PATH")))))
 
 (def sh-rails
   (fn [task] (shell/sh "rails" (:script task))))
