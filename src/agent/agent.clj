@@ -5,6 +5,8 @@
             [agent.clients :as clients]
             [agent.secrets :as secrets]
             [io.grpc.Agent.client :as grpc-client]
+            [cognitect.aws.client.api :as aws]
+            [cognitect.aws.credentials :as credentials]
             [clj-http.client :as http-client]
             [clojure.data.json :as json]
             [clojure.walk :refer [keywordize-keys]]
@@ -177,7 +179,7 @@
     ;; https://github.com/aws/amazon-ssm-agent/issues/358
     (shell/sh "unbuffer" "aws" "ecs" "execute-command" "--interactive"
               "--cluster" (:ECS_CLUSTER secrets)
-              "--task" (:ECS_TASK_ID secrets)
+              "--task" (get-in task [:runtime-args :ecs-task-arn])
               "--container" (:ECS_CONTAINER secrets)
               "--command" command
               :env {"PATH" (System/getenv "PATH")
@@ -257,6 +259,7 @@
          add-secrets-from-mapping
          validate-secrets
          render-script
+         fetch-runtime-args
          run-command)
 
 (defn run-task [task]
@@ -267,7 +270,8 @@
               (with-tracing add-secrets-from-mapping [:run-agent-task :add-secrets-from-mapping])
               (with-tracing validate-secrets [:run-agent-task :validate-secrets])
               (with-tracing render-script [:run-agent-task :render-script])
-              (with-tracing run-command [:run-agent-task :run-command])
+              (with-tracing fetch-runtime-args [:run-agent-task :fetch-runtime-args])
+              (with-tracing run-command [:run-agent-task (keyword (:type task))])
               (with-tracing-end)))
 
 (defn parse-command [task]
@@ -375,6 +379,40 @@
 (defn render-script [task]
   [(assoc task :script (parser/render (:script task) (:secrets task))) nil])
 
+(defn fetch-runtime-args [task]
+  (case (:type task)
+    "rails-console-ecs"
+    (let [secrets (:secrets task)
+          _ (log/info "fetching ECS Task ID")
+          ecs-client (aws/client {:api :ecs
+                                  :region (:ECS_AWS_REGION secrets)
+                                  :credentials-provider
+                                  (credentials/basic-credentials-provider
+                                   {:access-key-id (:ECS_AWS_ACCESS_KEY_ID secrets)
+                                    :secret-access-key (:ECS_AWS_SECRET_ACCESS_KEY secrets)})})
+          _ (aws/validate-requests ecs-client true) ; validate wrong arguments
+          ecs-response (aws/invoke ecs-client {:op :ListTasks
+                                               :request {:serviceName (:ECS_SERVICE_NAME secrets)
+                                                         :cluster (:ECS_CLUSTER secrets)
+                                                         :maxResults 1}})
+          ecs-task-arn (first (:taskArns ecs-response))
+          non-valid-ecs-task (or (contains? ecs-response :cognitect.anomalies/category)
+                                 (empty? ecs-task-arn))]
+      (if non-valid-ecs-task
+        (let [msg-err (if (contains? ecs-response :cognitect.anomalies/category)
+                        (format "failed to obtain ECS Task ID, type=%s, message=%s, anomaly=%s"
+                                (:__type ecs-response)
+                                (:message ecs-response)
+                                (name (:cognitect.anomalies/category ecs-response)))
+                        (format "failed to obtain ECS Task ID for service=%s, cluster=%s, region=%s"
+                                (:ECS_SERVICE_NAME secrets)
+                                (:ECS_CLUSTER secrets)
+                                (:ECS_AWS_REGION secrets)))]
+          (log/warn msg-err)
+          (fail-task-with-message task msg-err))
+        [(assoc task :runtime-args {:ecs-task-arn ecs-task-arn}) nil]))
+    [task nil]))
+
 (defn run-command [task]
   (try
     (log/info (format "Start running command for task id: %s" (:id task)))
@@ -453,12 +491,12 @@
 (defn rails-console-ecs-validation [task]
   (let [secrets (:secrets task)]
     (if (or (empty? (:ECS_CLUSTER secrets))
-            (empty? (:ECS_TASK_ID secrets))
+            (empty? (:ECS_SERVICE_NAME secrets))
             (empty? (:ECS_CONTAINER secrets))
             (empty? (:ECS_AWS_ACCESS_KEY_ID secrets))
             (empty? (:ECS_AWS_SECRET_ACCESS_KEY secrets))
             (empty? (:ECS_AWS_REGION secrets)))
-      (let [msg-err "Rails-console-k8s type requires ECS_CLUSTER, ECS_TASK_ID, ECS_CONTAINER, ECS_AWS_ACCESS_KEY_ID, ECS_AWS_SECRET_ACCESS_KEY and ECS_AWS_REGION secret"]
+      (let [msg-err "Rails-console-k8s type requires ECS_CLUSTER, ECS_SERVICE_NAME, ECS_CONTAINER, ECS_AWS_ACCESS_KEY_ID, ECS_AWS_SECRET_ACCESS_KEY and ECS_AWS_REGION secret"]
         (log/warn msg-err)
         (Sentry/captureMessage msg-err)
         (fail-task-with-message task msg-err))
