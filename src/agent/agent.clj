@@ -271,7 +271,7 @@
               (with-tracing validate-secrets [:run-agent-task :validate-secrets])
               (with-tracing render-script [:run-agent-task :render-script])
               (with-tracing fetch-runtime-args [:run-agent-task :fetch-runtime-args])
-              (with-tracing run-command [:run-agent-task :run-command])
+              (with-tracing run-command [:run-agent-task (keyword (:type task))])
               (with-tracing-end)))
 
 (defn parse-command [task]
@@ -395,22 +395,22 @@
                                                :request {:serviceName (:ECS_SERVICE_NAME secrets)
                                                          :cluster (:ECS_CLUSTER secrets)
                                                          :maxResults 1}})
-          ecs-task-arn (first (:taskArns ecs-response))]
-      (when (contains? ecs-response :cognitect.anomalies/category)
-        (let [msg-err (format "failed to obtain ECS Task ID, type=%s, message=%s, anomaly=%s"
-                              (:__type ecs-response)
-                              (:message ecs-response)
-                              (name (:cognitect.anomalies/category ecs-response)))]
+          ecs-task-arn (first (:taskArns ecs-response))
+          non-valid-ecs-task (or (contains? ecs-response :cognitect.anomalies/category)
+                                 (empty? ecs-task-arn))]
+      (if non-valid-ecs-task
+        (let [msg-err (if (contains? ecs-response :cognitect.anomalies/category)
+                        (format "failed to obtain ECS Task ID, type=%s, message=%s, anomaly=%s"
+                                (:__type ecs-response)
+                                (:message ecs-response)
+                                (name (:cognitect.anomalies/category ecs-response)))
+                        (format "failed to obtain ECS Task ID for service=%s, cluster=%s, region=%s"
+                                (:ECS_SERVICE_NAME secrets)
+                                (:ECS_CLUSTER secrets)
+                                (:ECS_AWS_REGION secrets)))]
           (log/warn msg-err)
-          (fail-task-with-message task msg-err)))
-      (when (empty? ecs-task-arn)
-        (let [msg-err (format "failed to obtain ECS Task ID for service=%s, cluster=%s, region=%s"
-                              (:ECS_SERVICE_NAME secrets)
-                              (:ECS_CLUSTER secrets)
-                              (:ECS_AWS_REGION secrets))]
-          (log/warn msg-err)
-          (fail-task-with-message task msg-err)))
-      [(assoc task :runtime-args {:ecs-task-arn ecs-task-arn}) nil])
+          (fail-task-with-message task msg-err))
+        [(assoc task :runtime-args {:ecs-task-arn ecs-task-arn}) nil]))
     [task nil]))
 
 (defn run-command [task]
