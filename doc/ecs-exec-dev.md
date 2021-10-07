@@ -19,9 +19,9 @@ SECRET_KEY=$(cat ~/.aws/credentials  |grep aws_secret |awk {'print $3'})
 AWS_REGION=us-east-2
 # name of the cluster, task id and container
 ECS_CLUSTER=
-ECS_TASK_ID=
+ECS_SERVICE_NAME=
 ECS_CONTAINER=
-export ECS_CONFIG='{"ECS_AWS_ACCESS_KEY_ID": "'${ACCESS_KEY}'", "ECS_AWS_SECRET_ACCESS_KEY": "'${SECRET_KEY}'", "ECS_AWS_REGION": "us-east-2", "ECS_CLUSTER": $ECS_CLUSTER, "ECS_TASK_ID": $ECS_TASK_ID, "ECS_CONTAINER": $ECS_CONTAINER}'
+export ECS_CONFIG='{"ECS_AWS_ACCESS_KEY_ID": "'${ACCESS_KEY}'", "ECS_AWS_SECRET_ACCESS_KEY": "'${SECRET_KEY}'", "ECS_AWS_REGION": "us-east-2", "ECS_CLUSTER": $ECS_CLUSTER, "ECS_SERVICE_NAME": $ECS_SERVICE_NAME, "ECS_CONTAINER": $ECS_CONTAINER}'
 ```
 
 2. Run the agent
