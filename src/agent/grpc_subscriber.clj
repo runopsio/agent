@@ -56,7 +56,8 @@
             timeout-chan (async/timeout (* 60 1000 5))
             [msg chan] (async/alts! [out-chan timeout-chan])]
         (if (= timeout-chan chan)
-          (log/info "did not receive any ping in past 5 minutes... restarting gRPC connection")
+          (do (log/info "did not receive any ping in past 5 minutes... restarting gRPC connection")
+              (grpc-connect-subscribe {:delay 5000}))
           (if msg
             (process-message msg)
             (do (log/warn "gRPC server has closed the subscription channel...")
