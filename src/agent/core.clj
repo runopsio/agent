@@ -13,9 +13,7 @@
 
 (defn -main [& _]
   (flat/set-decoder! codec/destringify-val)  ; configure backend with the codec
-  (log/info (format "Starting agent tagged with [%s]" tags))
-  (log/info (format "version=%s, revision=%s" app-version git-revision))
-
+  (log/info {:version app-version :revision git-revision :tags tags} "Starting agent")
   (alter-var-root #'cambium.core/transform-context
                   (fn [_]
                     (fn [context]
@@ -27,4 +25,3 @@
   (mount/start)
   (grcp/listen-subscription)
   (http/poll))
-

@@ -1,5 +1,6 @@
 (ns agent.secrets
   (:require [cambium.core :as log]
+            [sentry.logger :refer [sentry-task-logger]]
             [clojure.data.json :as json]
             [clj-http.client :as client]
             [agent.clients :as clients]
@@ -189,7 +190,7 @@
 
 (defmethod format-by-db :default [task]
   (do (log/warn (format "not mapped vault db type '%s'" (:type task)))
-      (Sentry/captureMessage (format "A customer tried to get vault secrets for a not mapped db type: %s" (:type task)))
+      (sentry-task-logger task "A customer tried to get vault secrets for a not mapped db type")
       [nil (format "not mapped vault db type '%s'" (:type task))]))
 
 (defn merge-user-pass [task keys]

@@ -16,7 +16,7 @@
                  [org.ow2.asm/asm "8.0.1"]
 
                  ; monitoring
-                 [io.sentry/sentry-logback "5.0.1"]
+                 [io.sentry/sentry-clj "5.2.158"]
                  [io.honeycomb/honeycomb-opentelemetry-sdk "0.4.0"]
 
                  ; logging
