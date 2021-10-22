@@ -3,8 +3,8 @@
             [agent.clients :as clients]
             [agent.agent :as agent]
             [io.grpc.Agent.client :as agent-client]
-            [cambium.core :as log])
-  (:import io.sentry.Sentry))
+            [cambium.core :as log]
+            [sentry.logger :refer [sentry-task-logger]]))
 
 (def grpc-channels (atom {}))
 
@@ -21,7 +21,7 @@
     (async/go (agent/run-task (assoc task :mode :grpc)))
     (catch Exception e
       (log/error (format "failed to run task id %s command with error: %s" (:id task) e))
-      (Sentry/captureException e))))
+      (sentry-task-logger e task "failed to process message"))))
 
 (defn when-closed [future-to-watch callback]
   (future (callback

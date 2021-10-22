@@ -14,15 +14,6 @@
             </layout>
         </encoder>
     </appender>
-
-    <appender name="Sentry" class="io.sentry.logback.SentryAppender">
-        <options>
-            <dsn>https://7bee01d63c85471188c9157e62c79771@o919346.ingest.sentry.io/5863449</dsn>
-        </options>
-        <minimumEventLevel>WARN</minimumEventLevel>
-        <minimumBreadcrumbLevel>DEBUG</minimumBreadcrumbLevel>
-    </appender>
-
     <logger name="protojure.internal.grpc.client.providers.http2.jetty" level="off"/>
     <logger name="protojure.internal.grpc.client.providers.http2.core" level="off"/>
     <root level="info">

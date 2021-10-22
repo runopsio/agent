@@ -1,5 +1,6 @@
 (ns agent.agent
   (:require [cambium.core :as log]
+            [sentry.logger :refer [sentry-task-logger]]
             [agent.errors :as err]
             [clojure.java.shell :as shell]
             [agent.clients :as clients]
@@ -13,8 +14,7 @@
             [clostache.parser :as parser]
             [tracer.honeycomb :refer [with-tracing
                                       with-tracing-end]])
-  (:import java.io.File
-           io.sentry.Sentry))
+  (:import java.io.File))
 
 (defn- filter-optional-shell-args
   "Returns a vector of arguments filtering for non empty values.
@@ -231,6 +231,7 @@
     [nil task]
     (catch Exception e
       (log/error (format "Failed to run webhook for task id [%s] with error: %s" (:id task) e))
+      (sentry-task-logger e task "failed to perform webhook")
       [nil "webhook failed"])))
 
 (defmethod webhook :poll [task]
@@ -243,7 +244,7 @@
     [nil task]
     (catch Exception e
       (log/error (format "Failed to perform webhook for task id [%s] with error: %s" (:id task) e))
-      (Sentry/captureException e (format "Failed to perform webhook for task id [%s]" (:id task)))
+      (sentry-task-logger e task "failed to perform webhook")
       [nil "webhook failed"])))
 
 (defn succeed-task-with-message [task message]
@@ -278,7 +279,7 @@
   (if-let [command ((keyword (:type task)) commands)]
     [(assoc task :command command) nil]
     (do (log/warn (format "invalid task type [%s]" (:type task)))
-        (Sentry/captureMessage (format "invalid task type [%s]" (:type task)))
+        (sentry-task-logger task "invalid task type")
         (fail-task-with-message task (format "invalid task type [%s]" (:type task))))))
 
 (defmulti lock-task (fn [task] (:mode task)))
@@ -296,7 +297,7 @@
         [nil "task not found"]))
     (catch Exception e
       (log/error (format "failed to lock task id [%s] with error: %s" (:id task) e))
-      (Sentry/captureException e (format "failed to lock task id [%s]" (:id task)))
+      (sentry-task-logger e task "failed to lock task")
       [nil "failed to lock task"])))
 
 (defn get-secrets [task]
@@ -324,7 +325,7 @@
       (let [msg-err (format "failed reading secret-mapping config. task=%s, mapping=%s, err=%s"
                             (:id task) (:secret-mapping task) (.getMessage e))]
         (log/warn msg-err)
-        (Sentry/captureMessage msg-err)
+        (sentry-task-logger e task "failed reading secret-mapping config")
         (fail-task-with-message task msg-err)))))
 
 (defmulti validate-secrets (fn [task] (:type task)))
@@ -423,8 +424,8 @@
         (fail-task-with-message task (if-not (empty? (:err outcome)) (:err outcome) outcome-msg))))
     (catch Exception e
       (log/error (format "shell command failed for task id %s with error: %s" (:id task) e))
-      (Sentry/captureException e (format "shell command failed for task id %s" (:id task)))
-      (fail-task-with-message task "server error"))))
+      (sentry-task-logger e task "shell command failed")
+      (fail-task-with-message task "agent failed to run command"))))
 
 
 ;; secrets validations
@@ -432,16 +433,17 @@
   (let [secrets (:secrets task)]
     (if (empty? (:KUBE_CONFIG_DATA secrets))
       (do (log/warn "K8s type requires KUBE_CONFIG_DATA secret")
-          (Sentry/captureMessage "K8s type requires KUBE_CONFIG_DATA secret")
+          (sentry-task-logger nil task "K8s type requires KUBE_CONFIG_DATA secret")
           (fail-task-with-message task "K8s type requires KUBE_CONFIG_DATA secret"))
       [task nil])))
 
 (defn mongodb-validation [task]
   (let [secrets (:secrets task)]
     (if (empty? (:MONGO_CONNECTION_URI secrets))
-      (do (log/warn "Mongodb type requires all the following secrets: :MONGO_CONNECTION_URI < protocol :// user:pass  @ host:port / database ? parameters >")
-          (Sentry/captureMessage "Mongodb type requires all the following secrets: :MONGO_CONNECTION_URI < protocol :// user:pass  @ host:port / database ? parameters >")
-          (fail-task-with-message task "Mongodb type requires all the following secrets: :MONGO_CONNECTION_URI < protocol :// user:pass  @ host:port / database ? parameters >"))
+      (let [msg-err "Mongodb type requires all the following secrets: :MONGO_CONNECTION_URI < protocol :// user:pass  @ host:port / database ? parameters >"]
+        (log/warn msg-err)
+        (sentry-task-logger task msg-err)
+        (fail-task-with-message task msg-err))
       [task nil])))
 
 (defn mysql-validation [task]
@@ -450,9 +452,10 @@
             (empty? (:MYSQL_USER secrets))
             (empty? (:MYSQL_PASS secrets))
             (empty? (:MYSQL_DB secrets)))
-      (do (log/warn "Mysql type requires all the following secrets: MYSQL_HOST, MYSQL_USER, MYSQL_PASS and MYSQL_DB")
-          (Sentry/captureMessage "Mysql type requires all the following secrets: MYSQL_HOST, MYSQL_USER, MYSQL_PASS and MYSQL_DB")
-          (fail-task-with-message task "Mysql type requires all the following secrets: MYSQL_HOST, MYSQL_USER, MYSQL_PASS and MYSQL_DB"))
+      (let [msg-err "Mysql type requires all the following secrets: MYSQL_HOST, MYSQL_USER, MYSQL_PASS and MYSQL_DB"]
+        (log/warn msg-err)
+        (sentry-task-logger task msg-err)
+        (fail-task-with-message task msg-err))
       [task nil])))
 
 (defn postgres-validation [task]
@@ -461,9 +464,10 @@
             (empty? (:PG_USER secrets))
             (empty? (:PG_PASS secrets))
             (empty? (:PG_DB secrets)))
-      (do (log/warn "Postgres type requires all the following secrets: PG_HOST, PG_USER, PG_PASS and PG_DB")
-          (Sentry/captureMessage "Postgres type requires all the following secrets: PG_HOST, PG_USER, PG_PASS and PG_DB")
-          (fail-task-with-message task "Postgres type requires all the following secrets: PG_HOST, PG_USER, PG_PASS and PG_DB"))
+      (let [msg-err "Postgres type requires all the following secrets: PG_HOST, PG_USER, PG_PASS and PG_DB"]
+        (log/warn msg-err)
+        (sentry-task-logger task msg-err)
+        (fail-task-with-message task msg-err))
       [task nil])))
 
 (defn mssql-validation [task]
@@ -474,7 +478,7 @@
             (empty? (:MSSQL_DB secrets)))
       (let [msg-err "sql-server type requires all the following secrets: MSSQL_CONNECTION_URI, MSSQL_USER, MSSQL_PASS and MSSQL_DB"]
         (log/warn msg-err)
-        (Sentry/captureMessage msg-err)
+        (sentry-task-logger task msg-err)
         (fail-task-with-message task msg-err))
       [task nil])))
 
@@ -483,9 +487,10 @@
     (if (or (empty? (:KUBE_CONFIG_DATA secrets))
             (empty? (:NAMESPACE secrets))
             (empty? (:DEPLOYMENT secrets)))
-      (do (log/warn "Rails-console-k8s type requires KUBE_CONFIG_DATA, NAMESPACE and DEPLOYMENT secret")
-          (Sentry/captureMessage "Rails-console-k8s type requires KUBE_CONFIG_DATA, NAMESPACE and DEPLOYMENT secret")
-          (fail-task-with-message task "Rails-console-k8s type requires KUBE_CONFIG_DATA, NAMESPACE and DEPLOYMENT secret"))
+      (let [msg-err "Rails-console-k8s type requires KUBE_CONFIG_DATA, NAMESPACE and DEPLOYMENT secret"]
+        (log/warn msg-err)
+        (sentry-task-logger task msg-err)
+        (fail-task-with-message task msg-err))
       [task nil])))
 
 (defn rails-console-ecs-validation [task]
@@ -498,7 +503,7 @@
             (empty? (:ECS_AWS_REGION secrets)))
       (let [msg-err "Rails-console-k8s type requires ECS_CLUSTER, ECS_SERVICE_NAME, ECS_CONTAINER, ECS_AWS_ACCESS_KEY_ID, ECS_AWS_SECRET_ACCESS_KEY and ECS_AWS_REGION secret"]
         (log/warn msg-err)
-        (Sentry/captureMessage msg-err)
+        (sentry-task-logger task msg-err)
         (fail-task-with-message task msg-err))
       [task nil])))
 
@@ -506,7 +511,8 @@
   (let [secrets (:secrets task)]
     (if (or (empty? (:VAULT_ADDR secrets))
             (empty? (:VAULT_TOKEN secrets)))
-      (do (log/warn "Vault type requires all the following secrets: VAULT_ADDR and VAULT_TOKEN")
-          (Sentry/captureMessage "Vault type requires all the following secrets: VAULT_ADDR and VAULT_TOKEN")
-          (fail-task-with-message task "Vault type requires all the following secrets: VAULT_ADDR and VAULT_TOKEN"))
+      (let [msg-err "Vault type requires all the following secrets: VAULT_ADDR and VAULT_TOKEN"]
+        (log/warn msg-err)
+        (sentry-task-logger task msg-err)
+        (fail-task-with-message task msg-err))
       [task nil])))
