@@ -1,12 +1,11 @@
 (ns agent.secrets
   (:require [cambium.core :as log]
-            [sentry.logger :refer [sentry-task-logger]]
+            [sentry.logger :refer [sentry-task-logger sentry-logger]]
             [clojure.data.json :as json]
             [clj-http.client :as client]
             [agent.clients :as clients]
             [agent.errors :as err])
-  (:import software.amazon.awssdk.services.secretsmanager.model.GetSecretValueRequest
-           io.sentry.Sentry))
+  (:import software.amazon.awssdk.services.secretsmanager.model.GetSecretValueRequest))
 
 (defn json->map [str]
   (try
@@ -18,7 +17,8 @@
         [parsed nil]))
     (catch Exception e
       (log/warn (format "invalid secret 'config': Must be a valid JSON object. Error: %s" e))
-      (Sentry/captureException e)
+      (sentry-logger {:message "invalid secret 'config': Must be a valid JSON object"
+                      :throwable e})
       [nil "invalid secret 'config': Must be a valid JSON object"])))
 
 (defn parse-task-config
@@ -95,7 +95,7 @@
                   (fn [secrets] [(assoc task :secrets secrets) nil])))
     (catch Exception e
       (log/error (format "Failed to fetch secrets from aws with error: %s" e))
-      (Sentry/captureException e)
+      (sentry-task-logger e task "Failed to fetch aws secrets")
       [nil "failed to fetch aws secrets"])))
 
 
@@ -148,9 +148,9 @@
                   json->map
                   (fn [result] [(assoc task :client-token (get-in result [:auth :client_token])) nil])))
     (catch Exception e
-      (log/error (format "failed to get vault client_token (kubernetes account service) with error: %s" e))
-      (Sentry/captureException e)
-      [nil "failed to get vault client token"])))
+      (log/error (format "failed to get Vault client_token (kubernetes account service) with error: %s" e))
+      (sentry-task-logger e task "failed to get Vault client token")
+      [nil "failed to get Vault client token"])))
 
 
 ; vault-generic-secrets
@@ -163,8 +163,8 @@
                   json->map
                   (fn [secrets] [(assoc task :vault-secrets (:data secrets)) nil])))
     (catch Exception e
-      (log/error (format "failed to get vault generic secrets with error: %s" e))
-      [nil "failed to get vault generic secrets"])))
+      (log/error (format "failed to get Vault generic secrets with error: %s" e))
+      [nil "failed to get Vault generic secrets"])))
 
 
 ; format vault secret

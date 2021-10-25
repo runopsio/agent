@@ -1,12 +1,12 @@
 (ns agent.http-poller
   (:require [cambium.core :as log]
+            [sentry.logger :refer [sentry-logger]]
             [clj-http.client :as client]
             [agent.clients :as clients]
             [agent.agent :as agent]
             [camel-snake-kebab.extras :as cske]
             [camel-snake-kebab.core :as csk]
-            [clojure.core.async :as async])
-  (:import (io.sentry Sentry)))
+            [clojure.core.async :as async]))
 
 (def poll-params
   (conj {:runner_provider "runops" :status "ready"}
@@ -25,7 +25,7 @@
           (doall (pmap #(agent/run-task (assoc % :mode :poll)) tasks))))
       (catch java.io.EOFException e
         (log/error (format "failed to poll tasks with error: %s" e))
-        (Sentry/captureException e (format "failed to poll tasks with error: %s" e))
+        (sentry-logger {:message "failed to poll tasks" :throwable e})
         ;; this is a workaround to make agent resilient to network issues
         ;; we saw this issue happening on dock infrastracture.
         (when (clojure.string/includes? (str (.getMessage e)) "SSL peer shut down incorrectly")
@@ -33,7 +33,7 @@
           (System/exit 1)))
       (catch Exception e
         (log/error (format "failed to poll tasks with error: %s" e))
-        (Sentry/captureException e (format "failed to poll tasks with error: %s" e))))))
+        (sentry-logger {:message "failed to poll tasks" :throwable e})))))
 
 (def poll-interval (* 10 1000))
 
