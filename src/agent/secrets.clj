@@ -148,9 +148,9 @@
                   json->map
                   (fn [result] [(assoc task :client-token (get-in result [:auth :client_token])) nil])))
     (catch Exception e
-      (log/error (format "failed to get vault client_token (kubernetes account service) with error: %s" e))
-      (sentry-task-logger e task "failed to get valut client token")
-      [nil "failed to get vault client token"])))
+      (log/error (format "failed to get Vault client_token (kubernetes account service) with error: %s" e))
+      (sentry-task-logger e task "failed to get Vault client token")
+      [nil "failed to get Vault client token"])))
 
 
 ; vault-generic-secrets
@@ -163,8 +163,8 @@
                   json->map
                   (fn [secrets] [(assoc task :vault-secrets (:data secrets)) nil])))
     (catch Exception e
-      (log/error (format "failed to get vault generic secrets with error: %s" e))
-      [nil "failed to get vault generic secrets"])))
+      (log/error (format "failed to get Vault generic secrets with error: %s" e))
+      [nil "failed to get Vault generic secrets"])))
 
 
 ; format vault secret
