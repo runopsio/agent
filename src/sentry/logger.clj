@@ -7,7 +7,7 @@
 
 (def sentry-dsn-noop "https://public:private@sentry.io/1")
 
-(defstate ^:private sentry-init
+(defstate sentry-init
   :start (let [args (mount/args)
                config-id (:id args)
                sentry-dsn (get args :sentry-dsn sentry-dsn-noop)
