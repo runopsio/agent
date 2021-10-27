@@ -14,6 +14,19 @@
 ; GRPC Client Implementation
 ;-----------------------------------------------------------------------------
 
+(defn Event
+  ([client params] (Event client {} params))
+  ([client metadata params]
+  (let [input (async/chan 1)
+        output (async/chan 1)
+        desc {:service "io.grpc.Agent"
+              :method  "Event"
+              :input   {:f io.grpc/new-EventRequest :ch input}
+              :output  {:f io.grpc/pb->RuntimeConfigurationResponse :ch output}
+              :metadata metadata}]
+    (-> (send-unary-params input params)
+        (p/then (fn [_] (invoke-unary client desc output)))))))
+
 (defn Subscribe
   ([client params reply] (Subscribe client {} params reply))
   ([client metadata params reply]

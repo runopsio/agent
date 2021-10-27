@@ -6,6 +6,7 @@
             [version.version :refer [app-version git-revision]]
             [agent.http-poller :as http]
             [agent.grpc-subscriber :as grcp]
+            [runtime.init :as init]
             [mount.core :as mount])
   (:gen-class))
 
@@ -21,7 +22,9 @@
                           (assoc :version app-version
                                  :tags tags)))))
 
-  ; mount clients
-  (mount/start)
-  (grcp/listen-subscription)
-  (http/poll))
+  (let [runtime-config (init/fetch-agent-config)]
+    (-> (mount/with-args runtime-config)
+        mount/start)
+    (log/info (format "Agent config id=[%s] loaded with success" (:id runtime-config)))
+    (grcp/listen-subscription)
+    (http/poll (get runtime-config :http-poll-interval-in-seconds 10))))

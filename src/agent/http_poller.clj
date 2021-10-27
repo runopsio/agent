@@ -35,11 +35,9 @@
         (log/error (format "failed to poll tasks with error: %s" e))
         (sentry-logger {:message "failed to poll tasks" :throwable e})))))
 
-(def poll-interval (* 10 1000))
-
-(defn poll []
+(defn poll [interval-in-seconds]
   (log/info "Starting task poller...")
   (async/go-loop []
-    (Thread/sleep poll-interval)
+    (Thread/sleep (* interval-in-seconds 1000))
     (poll-tasks)
     (recur)))

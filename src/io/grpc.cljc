@@ -21,6 +21,15 @@
 (declare cis->SubscriberRequest)
 (declare ecis->SubscriberRequest)
 (declare new-SubscriberRequest)
+(declare cis->EventRequest)
+(declare ecis->EventRequest)
+(declare new-EventRequest)
+(declare cis->EventRequest-RuntimeDataEntry)
+(declare ecis->EventRequest-RuntimeDataEntry)
+(declare new-EventRequest-RuntimeDataEntry)
+(declare cis->RuntimeConfigurationResponse)
+(declare ecis->RuntimeConfigurationResponse)
+(declare new-RuntimeConfigurationResponse)
 (declare cis->TaskResponse)
 (declare ecis->TaskResponse)
 (declare new-TaskResponse)
@@ -88,6 +97,167 @@
   (cis->SubscriberRequest (serdes.stream/new-cis input)))
 
 (def ^:protojure.protobuf.any/record SubscriberRequest-meta {:type "io.grpc.SubscriberRequest" :decoder pb->SubscriberRequest})
+
+;-----------------------------------------------------------------------------
+; EventRequest
+;-----------------------------------------------------------------------------
+(defrecord EventRequest-record [runtime-data]
+  pb/Writer
+  (serialize [this os]
+    (serdes.complex/write-map new-EventRequest-RuntimeDataEntry 1 (:runtime-data this) os))
+  pb/TypeReflection
+  (gettype [this]
+    "io.grpc.EventRequest"))
+
+(s/def ::EventRequest-spec (s/keys :opt-un []))
+(def EventRequest-defaults {:runtime-data [] })
+
+(defn cis->EventRequest
+  "CodedInputStream to EventRequest"
+  [is]
+  (->> (tag-map EventRequest-defaults
+         (fn [tag index]
+             (case index
+               1 [:runtime-data (serdes.complex/cis->map ecis->EventRequest-RuntimeDataEntry is)]
+
+               [index (serdes.core/cis->undefined tag is)]))
+         is)
+        (map->EventRequest-record)))
+
+(defn ecis->EventRequest
+  "Embedded CodedInputStream to EventRequest"
+  [is]
+  (serdes.core/cis->embedded cis->EventRequest is))
+
+(defn new-EventRequest
+  "Creates a new instance from a map, similar to map->EventRequest except that
+  it properly accounts for nested messages, when applicable.
+  "
+  [init]
+  {:pre [(if (s/valid? ::EventRequest-spec init) true (throw (ex-info "Invalid input" (s/explain-data ::EventRequest-spec init))))]}
+  (-> (merge EventRequest-defaults init)
+      (map->EventRequest-record)))
+
+(defn pb->EventRequest
+  "Protobuf to EventRequest"
+  [input]
+  (cis->EventRequest (serdes.stream/new-cis input)))
+
+(def ^:protojure.protobuf.any/record EventRequest-meta {:type "io.grpc.EventRequest" :decoder pb->EventRequest})
+
+;-----------------------------------------------------------------------------
+; EventRequest-RuntimeDataEntry
+;-----------------------------------------------------------------------------
+(defrecord EventRequest-RuntimeDataEntry-record [key value]
+  pb/Writer
+  (serialize [this os]
+    (serdes.core/write-String 1  {:optimize true} (:key this) os)
+    (serdes.core/write-String 2  {:optimize true} (:value this) os))
+  pb/TypeReflection
+  (gettype [this]
+    "io.grpc.EventRequest-RuntimeDataEntry"))
+
+(s/def :io.grpc.EventRequest-RuntimeDataEntry/key string?)
+(s/def :io.grpc.EventRequest-RuntimeDataEntry/value string?)
+(s/def ::EventRequest-RuntimeDataEntry-spec (s/keys :opt-un [:io.grpc.EventRequest-RuntimeDataEntry/key :io.grpc.EventRequest-RuntimeDataEntry/value ]))
+(def EventRequest-RuntimeDataEntry-defaults {:key "" :value "" })
+
+(defn cis->EventRequest-RuntimeDataEntry
+  "CodedInputStream to EventRequest-RuntimeDataEntry"
+  [is]
+  (->> (tag-map EventRequest-RuntimeDataEntry-defaults
+         (fn [tag index]
+             (case index
+               1 [:key (serdes.core/cis->String is)]
+               2 [:value (serdes.core/cis->String is)]
+
+               [index (serdes.core/cis->undefined tag is)]))
+         is)
+        (map->EventRequest-RuntimeDataEntry-record)))
+
+(defn ecis->EventRequest-RuntimeDataEntry
+  "Embedded CodedInputStream to EventRequest-RuntimeDataEntry"
+  [is]
+  (serdes.core/cis->embedded cis->EventRequest-RuntimeDataEntry is))
+
+(defn new-EventRequest-RuntimeDataEntry
+  "Creates a new instance from a map, similar to map->EventRequest-RuntimeDataEntry except that
+  it properly accounts for nested messages, when applicable.
+  "
+  [init]
+  {:pre [(if (s/valid? ::EventRequest-RuntimeDataEntry-spec init) true (throw (ex-info "Invalid input" (s/explain-data ::EventRequest-RuntimeDataEntry-spec init))))]}
+  (-> (merge EventRequest-RuntimeDataEntry-defaults init)
+      (map->EventRequest-RuntimeDataEntry-record)))
+
+(defn pb->EventRequest-RuntimeDataEntry
+  "Protobuf to EventRequest-RuntimeDataEntry"
+  [input]
+  (cis->EventRequest-RuntimeDataEntry (serdes.stream/new-cis input)))
+
+(def ^:protojure.protobuf.any/record EventRequest-RuntimeDataEntry-meta {:type "io.grpc.EventRequest-RuntimeDataEntry" :decoder pb->EventRequest-RuntimeDataEntry})
+
+;-----------------------------------------------------------------------------
+; RuntimeConfigurationResponse
+;-----------------------------------------------------------------------------
+(defrecord RuntimeConfigurationResponse-record [id hc-dataset hc-api-key sentry-dsn sentry-env http-poll-interval-in-seconds]
+  pb/Writer
+  (serialize [this os]
+    (serdes.core/write-String 1  {:optimize true} (:id this) os)
+    (serdes.core/write-String 2  {:optimize true} (:hc-dataset this) os)
+    (serdes.core/write-String 3  {:optimize true} (:hc-api-key this) os)
+    (serdes.core/write-String 4  {:optimize true} (:sentry-dsn this) os)
+    (serdes.core/write-String 5  {:optimize true} (:sentry-env this) os)
+    (serdes.core/write-Int32 6  {:optimize true} (:http-poll-interval-in-seconds this) os))
+  pb/TypeReflection
+  (gettype [this]
+    "io.grpc.RuntimeConfigurationResponse"))
+
+(s/def :io.grpc.RuntimeConfigurationResponse/id string?)
+(s/def :io.grpc.RuntimeConfigurationResponse/hc-dataset string?)
+(s/def :io.grpc.RuntimeConfigurationResponse/hc-api-key string?)
+(s/def :io.grpc.RuntimeConfigurationResponse/sentry-dsn string?)
+(s/def :io.grpc.RuntimeConfigurationResponse/sentry-env string?)
+(s/def :io.grpc.RuntimeConfigurationResponse/http-poll-interval-in-seconds int?)
+(s/def ::RuntimeConfigurationResponse-spec (s/keys :opt-un [:io.grpc.RuntimeConfigurationResponse/id :io.grpc.RuntimeConfigurationResponse/hc-dataset :io.grpc.RuntimeConfigurationResponse/hc-api-key :io.grpc.RuntimeConfigurationResponse/sentry-dsn :io.grpc.RuntimeConfigurationResponse/sentry-env :io.grpc.RuntimeConfigurationResponse/http-poll-interval-in-seconds ]))
+(def RuntimeConfigurationResponse-defaults {:id "" :hc-dataset "" :hc-api-key "" :sentry-dsn "" :sentry-env "" :http-poll-interval-in-seconds 0 })
+
+(defn cis->RuntimeConfigurationResponse
+  "CodedInputStream to RuntimeConfigurationResponse"
+  [is]
+  (->> (tag-map RuntimeConfigurationResponse-defaults
+         (fn [tag index]
+             (case index
+               1 [:id (serdes.core/cis->String is)]
+               2 [:hc-dataset (serdes.core/cis->String is)]
+               3 [:hc-api-key (serdes.core/cis->String is)]
+               4 [:sentry-dsn (serdes.core/cis->String is)]
+               5 [:sentry-env (serdes.core/cis->String is)]
+               6 [:http-poll-interval-in-seconds (serdes.core/cis->Int32 is)]
+
+               [index (serdes.core/cis->undefined tag is)]))
+         is)
+        (map->RuntimeConfigurationResponse-record)))
+
+(defn ecis->RuntimeConfigurationResponse
+  "Embedded CodedInputStream to RuntimeConfigurationResponse"
+  [is]
+  (serdes.core/cis->embedded cis->RuntimeConfigurationResponse is))
+
+(defn new-RuntimeConfigurationResponse
+  "Creates a new instance from a map, similar to map->RuntimeConfigurationResponse except that
+  it properly accounts for nested messages, when applicable.
+  "
+  [init]
+  {:pre [(if (s/valid? ::RuntimeConfigurationResponse-spec init) true (throw (ex-info "Invalid input" (s/explain-data ::RuntimeConfigurationResponse-spec init))))]}
+  (-> (merge RuntimeConfigurationResponse-defaults init)
+      (map->RuntimeConfigurationResponse-record)))
+
+(defn pb->RuntimeConfigurationResponse
+  "Protobuf to RuntimeConfigurationResponse"
+  [input]
+  (cis->RuntimeConfigurationResponse (serdes.stream/new-cis input)))
+
+(def ^:protojure.protobuf.any/record RuntimeConfigurationResponse-meta {:type "io.grpc.RuntimeConfigurationResponse" :decoder pb->RuntimeConfigurationResponse})
 
 ;-----------------------------------------------------------------------------
 ; TaskResponse
