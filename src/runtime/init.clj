@@ -1,7 +1,6 @@
 (ns runtime.init
   (:require [agent.clients :as clients]
             [io.grpc.Agent.client :as agent-client]
-            [agent.errors :as err]
             [cambium.core :as log]
             [backoff.time :as backoff]
             [clojure.walk :refer [stringify-keys]]
