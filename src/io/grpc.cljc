@@ -18,9 +18,6 @@
 ;;----------------------------------------------------------------------------------
 ;;----------------------------------------------------------------------------------
 
-(declare cis->BackoffStrategy)
-(declare ecis->BackoffStrategy)
-(declare new-BackoffStrategy)
 (declare cis->EventRequest-RuntimeDataEntry)
 (declare ecis->EventRequest-RuntimeDataEntry)
 (declare new-EventRequest-RuntimeDataEntry)
@@ -39,6 +36,9 @@
 (declare cis->LogsResponse)
 (declare ecis->LogsResponse)
 (declare new-LogsResponse)
+(declare cis->ConnectionConfig)
+(declare ecis->ConnectionConfig)
+(declare new-ConnectionConfig)
 (declare cis->EventRequest)
 (declare ecis->EventRequest)
 (declare new-EventRequest)
@@ -52,60 +52,6 @@
 ;; Message Implementations
 ;;----------------------------------------------------------------------------------
 ;;----------------------------------------------------------------------------------
-
-;-----------------------------------------------------------------------------
-; BackoffStrategy
-;-----------------------------------------------------------------------------
-(defrecord BackoffStrategy-record [http-poll grpc-connect-subscribe grpc-connect-channel-timeout]
-  pb/Writer
-  (serialize [this os]
-    (serdes.core/write-Int32 1  {:optimize true} (:http-poll this) os)
-    (serdes.core/write-Int32 2  {:optimize true} (:grpc-connect-subscribe this) os)
-    (serdes.core/write-Int32 3  {:optimize true} (:grpc-connect-channel-timeout this) os))
-  pb/TypeReflection
-  (gettype [this]
-    "io.grpc.BackoffStrategy"))
-
-(s/def :io.grpc.BackoffStrategy/http-poll int?)
-(s/def :io.grpc.BackoffStrategy/grpc-connect-subscribe int?)
-(s/def :io.grpc.BackoffStrategy/grpc-connect-channel-timeout int?)
-(s/def ::BackoffStrategy-spec (s/keys :opt-un [:io.grpc.BackoffStrategy/http-poll :io.grpc.BackoffStrategy/grpc-connect-subscribe :io.grpc.BackoffStrategy/grpc-connect-channel-timeout ]))
-(def BackoffStrategy-defaults {:http-poll 0 :grpc-connect-subscribe 0 :grpc-connect-channel-timeout 0 })
-
-(defn cis->BackoffStrategy
-  "CodedInputStream to BackoffStrategy"
-  [is]
-  (->> (tag-map BackoffStrategy-defaults
-         (fn [tag index]
-             (case index
-               1 [:http-poll (serdes.core/cis->Int32 is)]
-               2 [:grpc-connect-subscribe (serdes.core/cis->Int32 is)]
-               3 [:grpc-connect-channel-timeout (serdes.core/cis->Int32 is)]
-
-               [index (serdes.core/cis->undefined tag is)]))
-         is)
-        (map->BackoffStrategy-record)))
-
-(defn ecis->BackoffStrategy
-  "Embedded CodedInputStream to BackoffStrategy"
-  [is]
-  (serdes.core/cis->embedded cis->BackoffStrategy is))
-
-(defn new-BackoffStrategy
-  "Creates a new instance from a map, similar to map->BackoffStrategy except that
-  it properly accounts for nested messages, when applicable.
-  "
-  [init]
-  {:pre [(if (s/valid? ::BackoffStrategy-spec init) true (throw (ex-info "Invalid input" (s/explain-data ::BackoffStrategy-spec init))))]}
-  (-> (merge BackoffStrategy-defaults init)
-      (map->BackoffStrategy-record)))
-
-(defn pb->BackoffStrategy
-  "Protobuf to BackoffStrategy"
-  [input]
-  (cis->BackoffStrategy (serdes.stream/new-cis input)))
-
-(def ^:protojure.protobuf.any/record BackoffStrategy-meta {:type "io.grpc.BackoffStrategy" :decoder pb->BackoffStrategy})
 
 ;-----------------------------------------------------------------------------
 ; EventRequest-RuntimeDataEntry
@@ -161,7 +107,7 @@
 ;-----------------------------------------------------------------------------
 ; RuntimeConfigurationResponse
 ;-----------------------------------------------------------------------------
-(defrecord RuntimeConfigurationResponse-record [id hc-dataset hc-api-key sentry-dsn sentry-env backoff-strategy]
+(defrecord RuntimeConfigurationResponse-record [id hc-dataset hc-api-key sentry-dsn sentry-env connection-config]
   pb/Writer
   (serialize [this os]
     (serdes.core/write-String 1  {:optimize true} (:id this) os)
@@ -169,7 +115,7 @@
     (serdes.core/write-String 3  {:optimize true} (:hc-api-key this) os)
     (serdes.core/write-String 4  {:optimize true} (:sentry-dsn this) os)
     (serdes.core/write-String 5  {:optimize true} (:sentry-env this) os)
-    (serdes.core/write-embedded 6 (:backoff-strategy this) os))
+    (serdes.core/write-embedded 6 (:connection-config this) os))
   pb/TypeReflection
   (gettype [this]
     "io.grpc.RuntimeConfigurationResponse"))
@@ -194,7 +140,7 @@
                3 [:hc-api-key (serdes.core/cis->String is)]
                4 [:sentry-dsn (serdes.core/cis->String is)]
                5 [:sentry-env (serdes.core/cis->String is)]
-               6 [:backoff-strategy (ecis->BackoffStrategy is)]
+               6 [:connection-config (ecis->ConnectionConfig is)]
 
                [index (serdes.core/cis->undefined tag is)]))
          is)
@@ -212,7 +158,7 @@
   [init]
   {:pre [(if (s/valid? ::RuntimeConfigurationResponse-spec init) true (throw (ex-info "Invalid input" (s/explain-data ::RuntimeConfigurationResponse-spec init))))]}
   (-> (merge RuntimeConfigurationResponse-defaults init)
-      (cond-> (some? (get init :backoff-strategy)) (update :backoff-strategy new-BackoffStrategy))
+      (cond-> (some? (get init :connection-config)) (update :connection-config new-ConnectionConfig))
       (map->RuntimeConfigurationResponse-record)))
 
 (defn pb->RuntimeConfigurationResponse
@@ -416,6 +362,60 @@
   (cis->LogsResponse (serdes.stream/new-cis input)))
 
 (def ^:protojure.protobuf.any/record LogsResponse-meta {:type "io.grpc.LogsResponse" :decoder pb->LogsResponse})
+
+;-----------------------------------------------------------------------------
+; ConnectionConfig
+;-----------------------------------------------------------------------------
+(defrecord ConnectionConfig-record [backoff-http-poll backoff-grpc-connect-subscribe grpc-connect-channel-timeout]
+  pb/Writer
+  (serialize [this os]
+    (serdes.core/write-Int32 1  {:optimize true} (:backoff-http-poll this) os)
+    (serdes.core/write-Int32 2  {:optimize true} (:backoff-grpc-connect-subscribe this) os)
+    (serdes.core/write-Int32 3  {:optimize true} (:grpc-connect-channel-timeout this) os))
+  pb/TypeReflection
+  (gettype [this]
+    "io.grpc.ConnectionConfig"))
+
+(s/def :io.grpc.ConnectionConfig/backoff-http-poll int?)
+(s/def :io.grpc.ConnectionConfig/backoff-grpc-connect-subscribe int?)
+(s/def :io.grpc.ConnectionConfig/grpc-connect-channel-timeout int?)
+(s/def ::ConnectionConfig-spec (s/keys :opt-un [:io.grpc.ConnectionConfig/backoff-http-poll :io.grpc.ConnectionConfig/backoff-grpc-connect-subscribe :io.grpc.ConnectionConfig/grpc-connect-channel-timeout ]))
+(def ConnectionConfig-defaults {:backoff-http-poll 0 :backoff-grpc-connect-subscribe 0 :grpc-connect-channel-timeout 0 })
+
+(defn cis->ConnectionConfig
+  "CodedInputStream to ConnectionConfig"
+  [is]
+  (->> (tag-map ConnectionConfig-defaults
+         (fn [tag index]
+             (case index
+               1 [:backoff-http-poll (serdes.core/cis->Int32 is)]
+               2 [:backoff-grpc-connect-subscribe (serdes.core/cis->Int32 is)]
+               3 [:grpc-connect-channel-timeout (serdes.core/cis->Int32 is)]
+
+               [index (serdes.core/cis->undefined tag is)]))
+         is)
+        (map->ConnectionConfig-record)))
+
+(defn ecis->ConnectionConfig
+  "Embedded CodedInputStream to ConnectionConfig"
+  [is]
+  (serdes.core/cis->embedded cis->ConnectionConfig is))
+
+(defn new-ConnectionConfig
+  "Creates a new instance from a map, similar to map->ConnectionConfig except that
+  it properly accounts for nested messages, when applicable.
+  "
+  [init]
+  {:pre [(if (s/valid? ::ConnectionConfig-spec init) true (throw (ex-info "Invalid input" (s/explain-data ::ConnectionConfig-spec init))))]}
+  (-> (merge ConnectionConfig-defaults init)
+      (map->ConnectionConfig-record)))
+
+(defn pb->ConnectionConfig
+  "Protobuf to ConnectionConfig"
+  [input]
+  (cis->ConnectionConfig (serdes.stream/new-cis input)))
+
+(def ^:protojure.protobuf.any/record ConnectionConfig-meta {:type "io.grpc.ConnectionConfig" :decoder pb->ConnectionConfig})
 
 ;-----------------------------------------------------------------------------
 ; EventRequest

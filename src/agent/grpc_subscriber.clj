@@ -46,14 +46,14 @@
         (when (clients/grpc-client-alive?)
           (subscribe)))))
 
-(defn listen-subscription [backoff-timeout-ms backoff-subscribe-ms]
+(defn listen-subscription [channel-timeout-ms backoff-subscribe-ms]
   (grpc-connect-subscribe {})
 
   (log/info "starting gRPC listener...")
   (async/go-loop []
     (if (clients/grpc-client-alive?)
       (let [out-chan (subscription-channel)
-            timeout-chan (async/timeout backoff-timeout-ms)
+            timeout-chan (async/timeout channel-timeout-ms)
             [msg chan] (async/alts! [out-chan timeout-chan])]
         (if (= timeout-chan chan)
           (do (log/info "did not receive any ping in past 5 minutes... restarting gRPC connection")

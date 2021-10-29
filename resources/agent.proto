@@ -9,9 +9,9 @@ message EventRequest {
   map<string, string> runtime_data = 1;
 }
 
-message BackoffStrategy {
-  int32 http_poll = 1;
-  int32 grpc_connect_subscribe = 2;
+message ConnectionConfig {
+  int32 backoff_http_poll = 1;
+  int32 backoff_grpc_connect_subscribe = 2;
   int32 grpc_connect_channel_timeout = 3;
 }
 
@@ -21,7 +21,7 @@ message RuntimeConfigurationResponse {
   string hc_api_key = 3;
   string sentry_dsn = 4;
   string sentry_env = 5;
-  BackoffStrategy backoff_strategy = 6;
+  ConnectionConfig connection_config = 6;
 }
 
 message TaskResponse {
