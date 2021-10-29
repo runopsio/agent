@@ -21,7 +21,13 @@ poll the tasks and execute them.
 - VAULT_AUTH_METHOD (if using hashicorp-vault as secret manager, currently only `kubernetes-account-service` supported)
 
 ## Run dev
-$ lein run
+
+```sh
+# run main (grpc + http poller)
+lein run
+# or run on grpc mode only
+lein run-grpc-dev
+```
 
 ### Run Tests
 
@@ -52,7 +58,7 @@ The release process is automated, the flow of development should be:
 
 ```sh
 # follow the prompt instructions
-make gh-release
+make release
 ```
 
 It will release a new GitHub release based on the main branch automatically.

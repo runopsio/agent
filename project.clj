@@ -40,5 +40,6 @@
   :source-paths ["src" "test"]
   :main ^:skip-aot agent.core
   :target-path "target/%s"
-  :aliases {"clj-kondo" ["trampoline" "run" "-m" "clj-kondo.main"]}
+  :aliases {"clj-kondo" ["trampoline" "run" "-m" "clj-kondo.main"]
+            "run-grpc-dev" ["trampoline" "run" "-m" "agent.core/run-grpc-dev"]}
   :profiles {:uberjar {:aot :all}})

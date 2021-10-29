@@ -46,21 +46,21 @@
         (when (clients/grpc-client-alive?)
           (subscribe)))))
 
-(defn listen-subscription []
+(defn listen-subscription [backoff-timeout-ms backoff-subscribe-ms]
   (grpc-connect-subscribe {})
 
   (log/info "starting gRPC listener...")
   (async/go-loop []
     (if (clients/grpc-client-alive?)
       (let [out-chan (subscription-channel)
-            timeout-chan (async/timeout (* 60 1000 5))
+            timeout-chan (async/timeout backoff-timeout-ms)
             [msg chan] (async/alts! [out-chan timeout-chan])]
         (if (= timeout-chan chan)
           (do (log/info "did not receive any ping in past 5 minutes... restarting gRPC connection")
-              (grpc-connect-subscribe {:delay 5000}))
+              (grpc-connect-subscribe {:delay backoff-subscribe-ms}))
           (if msg
             (process-message msg)
             (do (log/warn "gRPC server has closed the subscription channel...")
-                (grpc-connect-subscribe {:delay 5000})))))
-      (grpc-connect-subscribe {:delay 5000}))
+                (grpc-connect-subscribe {:delay backoff-subscribe-ms})))))
+      (grpc-connect-subscribe {:delay backoff-subscribe-ms}))
     (recur)))

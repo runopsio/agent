@@ -18,30 +18,33 @@
 ;;----------------------------------------------------------------------------------
 ;;----------------------------------------------------------------------------------
 
-(declare cis->SubscriberRequest)
-(declare ecis->SubscriberRequest)
-(declare new-SubscriberRequest)
-(declare cis->EventRequest)
-(declare ecis->EventRequest)
-(declare new-EventRequest)
+(declare cis->BackoffStrategy)
+(declare ecis->BackoffStrategy)
+(declare new-BackoffStrategy)
 (declare cis->EventRequest-RuntimeDataEntry)
 (declare ecis->EventRequest-RuntimeDataEntry)
 (declare new-EventRequest-RuntimeDataEntry)
 (declare cis->RuntimeConfigurationResponse)
 (declare ecis->RuntimeConfigurationResponse)
 (declare new-RuntimeConfigurationResponse)
-(declare cis->TaskResponse)
-(declare ecis->TaskResponse)
-(declare new-TaskResponse)
+(declare cis->SubscriberRequest)
+(declare ecis->SubscriberRequest)
+(declare new-SubscriberRequest)
+(declare cis->HealthRequest)
+(declare ecis->HealthRequest)
+(declare new-HealthRequest)
 (declare cis->LogsRequest)
 (declare ecis->LogsRequest)
 (declare new-LogsRequest)
 (declare cis->LogsResponse)
 (declare ecis->LogsResponse)
 (declare new-LogsResponse)
-(declare cis->HealthRequest)
-(declare ecis->HealthRequest)
-(declare new-HealthRequest)
+(declare cis->EventRequest)
+(declare ecis->EventRequest)
+(declare new-EventRequest)
+(declare cis->TaskResponse)
+(declare ecis->TaskResponse)
+(declare new-TaskResponse)
 
 
 ;;----------------------------------------------------------------------------------
@@ -51,99 +54,58 @@
 ;;----------------------------------------------------------------------------------
 
 ;-----------------------------------------------------------------------------
-; SubscriberRequest
+; BackoffStrategy
 ;-----------------------------------------------------------------------------
-(defrecord SubscriberRequest-record [tags]
+(defrecord BackoffStrategy-record [http-poll grpc-connect-subscribe grpc-connect-channel-timeout]
   pb/Writer
   (serialize [this os]
-    (serdes.core/write-String 1  {:optimize true} (:tags this) os))
+    (serdes.core/write-Int32 1  {:optimize true} (:http-poll this) os)
+    (serdes.core/write-Int32 2  {:optimize true} (:grpc-connect-subscribe this) os)
+    (serdes.core/write-Int32 3  {:optimize true} (:grpc-connect-channel-timeout this) os))
   pb/TypeReflection
   (gettype [this]
-    "io.grpc.SubscriberRequest"))
+    "io.grpc.BackoffStrategy"))
 
-(s/def :io.grpc.SubscriberRequest/tags string?)
-(s/def ::SubscriberRequest-spec (s/keys :opt-un [:io.grpc.SubscriberRequest/tags ]))
-(def SubscriberRequest-defaults {:tags "" })
+(s/def :io.grpc.BackoffStrategy/http-poll int?)
+(s/def :io.grpc.BackoffStrategy/grpc-connect-subscribe int?)
+(s/def :io.grpc.BackoffStrategy/grpc-connect-channel-timeout int?)
+(s/def ::BackoffStrategy-spec (s/keys :opt-un [:io.grpc.BackoffStrategy/http-poll :io.grpc.BackoffStrategy/grpc-connect-subscribe :io.grpc.BackoffStrategy/grpc-connect-channel-timeout ]))
+(def BackoffStrategy-defaults {:http-poll 0 :grpc-connect-subscribe 0 :grpc-connect-channel-timeout 0 })
 
-(defn cis->SubscriberRequest
-  "CodedInputStream to SubscriberRequest"
+(defn cis->BackoffStrategy
+  "CodedInputStream to BackoffStrategy"
   [is]
-  (->> (tag-map SubscriberRequest-defaults
+  (->> (tag-map BackoffStrategy-defaults
          (fn [tag index]
              (case index
-               1 [:tags (serdes.core/cis->String is)]
+               1 [:http-poll (serdes.core/cis->Int32 is)]
+               2 [:grpc-connect-subscribe (serdes.core/cis->Int32 is)]
+               3 [:grpc-connect-channel-timeout (serdes.core/cis->Int32 is)]
 
                [index (serdes.core/cis->undefined tag is)]))
          is)
-        (map->SubscriberRequest-record)))
+        (map->BackoffStrategy-record)))
 
-(defn ecis->SubscriberRequest
-  "Embedded CodedInputStream to SubscriberRequest"
+(defn ecis->BackoffStrategy
+  "Embedded CodedInputStream to BackoffStrategy"
   [is]
-  (serdes.core/cis->embedded cis->SubscriberRequest is))
+  (serdes.core/cis->embedded cis->BackoffStrategy is))
 
-(defn new-SubscriberRequest
-  "Creates a new instance from a map, similar to map->SubscriberRequest except that
+(defn new-BackoffStrategy
+  "Creates a new instance from a map, similar to map->BackoffStrategy except that
   it properly accounts for nested messages, when applicable.
   "
   [init]
-  {:pre [(if (s/valid? ::SubscriberRequest-spec init) true (throw (ex-info "Invalid input" (s/explain-data ::SubscriberRequest-spec init))))]}
-  (-> (merge SubscriberRequest-defaults init)
-      (map->SubscriberRequest-record)))
+  {:pre [(if (s/valid? ::BackoffStrategy-spec init) true (throw (ex-info "Invalid input" (s/explain-data ::BackoffStrategy-spec init))))]}
+  (-> (merge BackoffStrategy-defaults init)
+      (map->BackoffStrategy-record)))
 
-(defn pb->SubscriberRequest
-  "Protobuf to SubscriberRequest"
+(defn pb->BackoffStrategy
+  "Protobuf to BackoffStrategy"
   [input]
-  (cis->SubscriberRequest (serdes.stream/new-cis input)))
+  (cis->BackoffStrategy (serdes.stream/new-cis input)))
 
-(def ^:protojure.protobuf.any/record SubscriberRequest-meta {:type "io.grpc.SubscriberRequest" :decoder pb->SubscriberRequest})
-
-;-----------------------------------------------------------------------------
-; EventRequest
-;-----------------------------------------------------------------------------
-(defrecord EventRequest-record [runtime-data]
-  pb/Writer
-  (serialize [this os]
-    (serdes.complex/write-map new-EventRequest-RuntimeDataEntry 1 (:runtime-data this) os))
-  pb/TypeReflection
-  (gettype [this]
-    "io.grpc.EventRequest"))
-
-(s/def ::EventRequest-spec (s/keys :opt-un []))
-(def EventRequest-defaults {:runtime-data [] })
-
-(defn cis->EventRequest
-  "CodedInputStream to EventRequest"
-  [is]
-  (->> (tag-map EventRequest-defaults
-         (fn [tag index]
-             (case index
-               1 [:runtime-data (serdes.complex/cis->map ecis->EventRequest-RuntimeDataEntry is)]
-
-               [index (serdes.core/cis->undefined tag is)]))
-         is)
-        (map->EventRequest-record)))
-
-(defn ecis->EventRequest
-  "Embedded CodedInputStream to EventRequest"
-  [is]
-  (serdes.core/cis->embedded cis->EventRequest is))
-
-(defn new-EventRequest
-  "Creates a new instance from a map, similar to map->EventRequest except that
-  it properly accounts for nested messages, when applicable.
-  "
-  [init]
-  {:pre [(if (s/valid? ::EventRequest-spec init) true (throw (ex-info "Invalid input" (s/explain-data ::EventRequest-spec init))))]}
-  (-> (merge EventRequest-defaults init)
-      (map->EventRequest-record)))
-
-(defn pb->EventRequest
-  "Protobuf to EventRequest"
-  [input]
-  (cis->EventRequest (serdes.stream/new-cis input)))
-
-(def ^:protojure.protobuf.any/record EventRequest-meta {:type "io.grpc.EventRequest" :decoder pb->EventRequest})
+(def ^:protojure.protobuf.any/record BackoffStrategy-meta {:type "io.grpc.BackoffStrategy" :decoder pb->BackoffStrategy})
 
 ;-----------------------------------------------------------------------------
 ; EventRequest-RuntimeDataEntry
@@ -199,7 +161,7 @@
 ;-----------------------------------------------------------------------------
 ; RuntimeConfigurationResponse
 ;-----------------------------------------------------------------------------
-(defrecord RuntimeConfigurationResponse-record [id hc-dataset hc-api-key sentry-dsn sentry-env http-poll-interval-in-seconds]
+(defrecord RuntimeConfigurationResponse-record [id hc-dataset hc-api-key sentry-dsn sentry-env backoff-strategy]
   pb/Writer
   (serialize [this os]
     (serdes.core/write-String 1  {:optimize true} (:id this) os)
@@ -207,7 +169,7 @@
     (serdes.core/write-String 3  {:optimize true} (:hc-api-key this) os)
     (serdes.core/write-String 4  {:optimize true} (:sentry-dsn this) os)
     (serdes.core/write-String 5  {:optimize true} (:sentry-env this) os)
-    (serdes.core/write-Int32 6  {:optimize true} (:http-poll-interval-in-seconds this) os))
+    (serdes.core/write-embedded 6 (:backoff-strategy this) os))
   pb/TypeReflection
   (gettype [this]
     "io.grpc.RuntimeConfigurationResponse"))
@@ -217,9 +179,9 @@
 (s/def :io.grpc.RuntimeConfigurationResponse/hc-api-key string?)
 (s/def :io.grpc.RuntimeConfigurationResponse/sentry-dsn string?)
 (s/def :io.grpc.RuntimeConfigurationResponse/sentry-env string?)
-(s/def :io.grpc.RuntimeConfigurationResponse/http-poll-interval-in-seconds int?)
-(s/def ::RuntimeConfigurationResponse-spec (s/keys :opt-un [:io.grpc.RuntimeConfigurationResponse/id :io.grpc.RuntimeConfigurationResponse/hc-dataset :io.grpc.RuntimeConfigurationResponse/hc-api-key :io.grpc.RuntimeConfigurationResponse/sentry-dsn :io.grpc.RuntimeConfigurationResponse/sentry-env :io.grpc.RuntimeConfigurationResponse/http-poll-interval-in-seconds ]))
-(def RuntimeConfigurationResponse-defaults {:id "" :hc-dataset "" :hc-api-key "" :sentry-dsn "" :sentry-env "" :http-poll-interval-in-seconds 0 })
+
+(s/def ::RuntimeConfigurationResponse-spec (s/keys :opt-un [:io.grpc.RuntimeConfigurationResponse/id :io.grpc.RuntimeConfigurationResponse/hc-dataset :io.grpc.RuntimeConfigurationResponse/hc-api-key :io.grpc.RuntimeConfigurationResponse/sentry-dsn :io.grpc.RuntimeConfigurationResponse/sentry-env ]))
+(def RuntimeConfigurationResponse-defaults {:id "" :hc-dataset "" :hc-api-key "" :sentry-dsn "" :sentry-env "" })
 
 (defn cis->RuntimeConfigurationResponse
   "CodedInputStream to RuntimeConfigurationResponse"
@@ -232,7 +194,7 @@
                3 [:hc-api-key (serdes.core/cis->String is)]
                4 [:sentry-dsn (serdes.core/cis->String is)]
                5 [:sentry-env (serdes.core/cis->String is)]
-               6 [:http-poll-interval-in-seconds (serdes.core/cis->Int32 is)]
+               6 [:backoff-strategy (ecis->BackoffStrategy is)]
 
                [index (serdes.core/cis->undefined tag is)]))
          is)
@@ -250,6 +212,7 @@
   [init]
   {:pre [(if (s/valid? ::RuntimeConfigurationResponse-spec init) true (throw (ex-info "Invalid input" (s/explain-data ::RuntimeConfigurationResponse-spec init))))]}
   (-> (merge RuntimeConfigurationResponse-defaults init)
+      (cond-> (some? (get init :backoff-strategy)) (update :backoff-strategy new-BackoffStrategy))
       (map->RuntimeConfigurationResponse-record)))
 
 (defn pb->RuntimeConfigurationResponse
@@ -260,76 +223,97 @@
 (def ^:protojure.protobuf.any/record RuntimeConfigurationResponse-meta {:type "io.grpc.RuntimeConfigurationResponse" :decoder pb->RuntimeConfigurationResponse})
 
 ;-----------------------------------------------------------------------------
-; TaskResponse
+; SubscriberRequest
 ;-----------------------------------------------------------------------------
-(defrecord TaskResponse-record [config x-b3-parent-span-id id secret-provider script secret-path type secret-mapping x-b3-trace-id]
+(defrecord SubscriberRequest-record [tags]
   pb/Writer
   (serialize [this os]
-    (serdes.core/write-String 7  {:optimize true} (:config this) os)
-    (serdes.core/write-String 9  {:optimize true} (:x-b3-parent-span-id this) os)
-    (serdes.core/write-Int32 1  {:optimize true} (:id this) os)
-    (serdes.core/write-String 4  {:optimize true} (:secret-provider this) os)
-    (serdes.core/write-String 3  {:optimize true} (:script this) os)
-    (serdes.core/write-String 5  {:optimize true} (:secret-path this) os)
-    (serdes.core/write-String 2  {:optimize true} (:type this) os)
-    (serdes.core/write-String 6  {:optimize true} (:secret-mapping this) os)
-    (serdes.core/write-String 8  {:optimize true} (:x-b3-trace-id this) os))
+    (serdes.core/write-String 1  {:optimize true} (:tags this) os))
   pb/TypeReflection
   (gettype [this]
-    "io.grpc.TaskResponse"))
+    "io.grpc.SubscriberRequest"))
 
-(s/def :io.grpc.TaskResponse/config string?)
-(s/def :io.grpc.TaskResponse/x-b3-parent-span-id string?)
-(s/def :io.grpc.TaskResponse/id int?)
-(s/def :io.grpc.TaskResponse/secret-provider string?)
-(s/def :io.grpc.TaskResponse/script string?)
-(s/def :io.grpc.TaskResponse/secret-path string?)
-(s/def :io.grpc.TaskResponse/type string?)
-(s/def :io.grpc.TaskResponse/secret-mapping string?)
-(s/def :io.grpc.TaskResponse/x-b3-trace-id string?)
-(s/def ::TaskResponse-spec (s/keys :opt-un [:io.grpc.TaskResponse/config :io.grpc.TaskResponse/x-b3-parent-span-id :io.grpc.TaskResponse/id :io.grpc.TaskResponse/secret-provider :io.grpc.TaskResponse/script :io.grpc.TaskResponse/secret-path :io.grpc.TaskResponse/type :io.grpc.TaskResponse/secret-mapping :io.grpc.TaskResponse/x-b3-trace-id ]))
-(def TaskResponse-defaults {:config "" :x-b3-parent-span-id "" :id 0 :secret-provider "" :script "" :secret-path "" :type "" :secret-mapping "" :x-b3-trace-id "" })
+(s/def :io.grpc.SubscriberRequest/tags string?)
+(s/def ::SubscriberRequest-spec (s/keys :opt-un [:io.grpc.SubscriberRequest/tags ]))
+(def SubscriberRequest-defaults {:tags "" })
 
-(defn cis->TaskResponse
-  "CodedInputStream to TaskResponse"
+(defn cis->SubscriberRequest
+  "CodedInputStream to SubscriberRequest"
   [is]
-  (->> (tag-map TaskResponse-defaults
+  (->> (tag-map SubscriberRequest-defaults
          (fn [tag index]
              (case index
-               7 [:config (serdes.core/cis->String is)]
-               9 [:x-b3-parent-span-id (serdes.core/cis->String is)]
-               1 [:id (serdes.core/cis->Int32 is)]
-               4 [:secret-provider (serdes.core/cis->String is)]
-               3 [:script (serdes.core/cis->String is)]
-               5 [:secret-path (serdes.core/cis->String is)]
-               2 [:type (serdes.core/cis->String is)]
-               6 [:secret-mapping (serdes.core/cis->String is)]
-               8 [:x-b3-trace-id (serdes.core/cis->String is)]
+               1 [:tags (serdes.core/cis->String is)]
 
                [index (serdes.core/cis->undefined tag is)]))
          is)
-        (map->TaskResponse-record)))
+        (map->SubscriberRequest-record)))
 
-(defn ecis->TaskResponse
-  "Embedded CodedInputStream to TaskResponse"
+(defn ecis->SubscriberRequest
+  "Embedded CodedInputStream to SubscriberRequest"
   [is]
-  (serdes.core/cis->embedded cis->TaskResponse is))
+  (serdes.core/cis->embedded cis->SubscriberRequest is))
 
-(defn new-TaskResponse
-  "Creates a new instance from a map, similar to map->TaskResponse except that
+(defn new-SubscriberRequest
+  "Creates a new instance from a map, similar to map->SubscriberRequest except that
   it properly accounts for nested messages, when applicable.
   "
   [init]
-  {:pre [(if (s/valid? ::TaskResponse-spec init) true (throw (ex-info "Invalid input" (s/explain-data ::TaskResponse-spec init))))]}
-  (-> (merge TaskResponse-defaults init)
-      (map->TaskResponse-record)))
+  {:pre [(if (s/valid? ::SubscriberRequest-spec init) true (throw (ex-info "Invalid input" (s/explain-data ::SubscriberRequest-spec init))))]}
+  (-> (merge SubscriberRequest-defaults init)
+      (map->SubscriberRequest-record)))
 
-(defn pb->TaskResponse
-  "Protobuf to TaskResponse"
+(defn pb->SubscriberRequest
+  "Protobuf to SubscriberRequest"
   [input]
-  (cis->TaskResponse (serdes.stream/new-cis input)))
+  (cis->SubscriberRequest (serdes.stream/new-cis input)))
 
-(def ^:protojure.protobuf.any/record TaskResponse-meta {:type "io.grpc.TaskResponse" :decoder pb->TaskResponse})
+(def ^:protojure.protobuf.any/record SubscriberRequest-meta {:type "io.grpc.SubscriberRequest" :decoder pb->SubscriberRequest})
+
+;-----------------------------------------------------------------------------
+; HealthRequest
+;-----------------------------------------------------------------------------
+(defrecord HealthRequest-record []
+  pb/Writer
+  (serialize [this os]
+)
+  pb/TypeReflection
+  (gettype [this]
+    "io.grpc.HealthRequest"))
+
+(s/def ::HealthRequest-spec (s/keys :opt-un []))
+(def HealthRequest-defaults {})
+
+(defn cis->HealthRequest
+  "CodedInputStream to HealthRequest"
+  [is]
+  (->> (tag-map HealthRequest-defaults
+         (fn [tag index]
+             (case index
+               [index (serdes.core/cis->undefined tag is)]))
+         is)
+        (map->HealthRequest-record)))
+
+(defn ecis->HealthRequest
+  "Embedded CodedInputStream to HealthRequest"
+  [is]
+  (serdes.core/cis->embedded cis->HealthRequest is))
+
+(defn new-HealthRequest
+  "Creates a new instance from a map, similar to map->HealthRequest except that
+  it properly accounts for nested messages, when applicable.
+  "
+  [init]
+  {:pre [(if (s/valid? ::HealthRequest-spec init) true (throw (ex-info "Invalid input" (s/explain-data ::HealthRequest-spec init))))]}
+  (-> (merge HealthRequest-defaults init)
+      (map->HealthRequest-record)))
+
+(defn pb->HealthRequest
+  "Protobuf to HealthRequest"
+  [input]
+  (cis->HealthRequest (serdes.stream/new-cis input)))
+
+(def ^:protojure.protobuf.any/record HealthRequest-meta {:type "io.grpc.HealthRequest" :decoder pb->HealthRequest})
 
 ;-----------------------------------------------------------------------------
 ; LogsRequest
@@ -434,47 +418,121 @@
 (def ^:protojure.protobuf.any/record LogsResponse-meta {:type "io.grpc.LogsResponse" :decoder pb->LogsResponse})
 
 ;-----------------------------------------------------------------------------
-; HealthRequest
+; EventRequest
 ;-----------------------------------------------------------------------------
-(defrecord HealthRequest-record []
+(defrecord EventRequest-record [runtime-data]
   pb/Writer
   (serialize [this os]
-)
+    (serdes.complex/write-map new-EventRequest-RuntimeDataEntry 1 (:runtime-data this) os))
   pb/TypeReflection
   (gettype [this]
-    "io.grpc.HealthRequest"))
+    "io.grpc.EventRequest"))
 
-(s/def ::HealthRequest-spec (s/keys :opt-un []))
-(def HealthRequest-defaults {})
+(s/def ::EventRequest-spec (s/keys :opt-un []))
+(def EventRequest-defaults {:runtime-data [] })
 
-(defn cis->HealthRequest
-  "CodedInputStream to HealthRequest"
+(defn cis->EventRequest
+  "CodedInputStream to EventRequest"
   [is]
-  (->> (tag-map HealthRequest-defaults
+  (->> (tag-map EventRequest-defaults
          (fn [tag index]
              (case index
+               1 [:runtime-data (serdes.complex/cis->map ecis->EventRequest-RuntimeDataEntry is)]
+
                [index (serdes.core/cis->undefined tag is)]))
          is)
-        (map->HealthRequest-record)))
+        (map->EventRequest-record)))
 
-(defn ecis->HealthRequest
-  "Embedded CodedInputStream to HealthRequest"
+(defn ecis->EventRequest
+  "Embedded CodedInputStream to EventRequest"
   [is]
-  (serdes.core/cis->embedded cis->HealthRequest is))
+  (serdes.core/cis->embedded cis->EventRequest is))
 
-(defn new-HealthRequest
-  "Creates a new instance from a map, similar to map->HealthRequest except that
+(defn new-EventRequest
+  "Creates a new instance from a map, similar to map->EventRequest except that
   it properly accounts for nested messages, when applicable.
   "
   [init]
-  {:pre [(if (s/valid? ::HealthRequest-spec init) true (throw (ex-info "Invalid input" (s/explain-data ::HealthRequest-spec init))))]}
-  (-> (merge HealthRequest-defaults init)
-      (map->HealthRequest-record)))
+  {:pre [(if (s/valid? ::EventRequest-spec init) true (throw (ex-info "Invalid input" (s/explain-data ::EventRequest-spec init))))]}
+  (-> (merge EventRequest-defaults init)
+      (map->EventRequest-record)))
 
-(defn pb->HealthRequest
-  "Protobuf to HealthRequest"
+(defn pb->EventRequest
+  "Protobuf to EventRequest"
   [input]
-  (cis->HealthRequest (serdes.stream/new-cis input)))
+  (cis->EventRequest (serdes.stream/new-cis input)))
 
-(def ^:protojure.protobuf.any/record HealthRequest-meta {:type "io.grpc.HealthRequest" :decoder pb->HealthRequest})
+(def ^:protojure.protobuf.any/record EventRequest-meta {:type "io.grpc.EventRequest" :decoder pb->EventRequest})
+
+;-----------------------------------------------------------------------------
+; TaskResponse
+;-----------------------------------------------------------------------------
+(defrecord TaskResponse-record [config x-b3-parent-span-id id secret-provider script secret-path type secret-mapping x-b3-trace-id]
+  pb/Writer
+  (serialize [this os]
+    (serdes.core/write-String 7  {:optimize true} (:config this) os)
+    (serdes.core/write-String 9  {:optimize true} (:x-b3-parent-span-id this) os)
+    (serdes.core/write-Int32 1  {:optimize true} (:id this) os)
+    (serdes.core/write-String 4  {:optimize true} (:secret-provider this) os)
+    (serdes.core/write-String 3  {:optimize true} (:script this) os)
+    (serdes.core/write-String 5  {:optimize true} (:secret-path this) os)
+    (serdes.core/write-String 2  {:optimize true} (:type this) os)
+    (serdes.core/write-String 6  {:optimize true} (:secret-mapping this) os)
+    (serdes.core/write-String 8  {:optimize true} (:x-b3-trace-id this) os))
+  pb/TypeReflection
+  (gettype [this]
+    "io.grpc.TaskResponse"))
+
+(s/def :io.grpc.TaskResponse/config string?)
+(s/def :io.grpc.TaskResponse/x-b3-parent-span-id string?)
+(s/def :io.grpc.TaskResponse/id int?)
+(s/def :io.grpc.TaskResponse/secret-provider string?)
+(s/def :io.grpc.TaskResponse/script string?)
+(s/def :io.grpc.TaskResponse/secret-path string?)
+(s/def :io.grpc.TaskResponse/type string?)
+(s/def :io.grpc.TaskResponse/secret-mapping string?)
+(s/def :io.grpc.TaskResponse/x-b3-trace-id string?)
+(s/def ::TaskResponse-spec (s/keys :opt-un [:io.grpc.TaskResponse/config :io.grpc.TaskResponse/x-b3-parent-span-id :io.grpc.TaskResponse/id :io.grpc.TaskResponse/secret-provider :io.grpc.TaskResponse/script :io.grpc.TaskResponse/secret-path :io.grpc.TaskResponse/type :io.grpc.TaskResponse/secret-mapping :io.grpc.TaskResponse/x-b3-trace-id ]))
+(def TaskResponse-defaults {:config "" :x-b3-parent-span-id "" :id 0 :secret-provider "" :script "" :secret-path "" :type "" :secret-mapping "" :x-b3-trace-id "" })
+
+(defn cis->TaskResponse
+  "CodedInputStream to TaskResponse"
+  [is]
+  (->> (tag-map TaskResponse-defaults
+         (fn [tag index]
+             (case index
+               7 [:config (serdes.core/cis->String is)]
+               9 [:x-b3-parent-span-id (serdes.core/cis->String is)]
+               1 [:id (serdes.core/cis->Int32 is)]
+               4 [:secret-provider (serdes.core/cis->String is)]
+               3 [:script (serdes.core/cis->String is)]
+               5 [:secret-path (serdes.core/cis->String is)]
+               2 [:type (serdes.core/cis->String is)]
+               6 [:secret-mapping (serdes.core/cis->String is)]
+               8 [:x-b3-trace-id (serdes.core/cis->String is)]
+
+               [index (serdes.core/cis->undefined tag is)]))
+         is)
+        (map->TaskResponse-record)))
+
+(defn ecis->TaskResponse
+  "Embedded CodedInputStream to TaskResponse"
+  [is]
+  (serdes.core/cis->embedded cis->TaskResponse is))
+
+(defn new-TaskResponse
+  "Creates a new instance from a map, similar to map->TaskResponse except that
+  it properly accounts for nested messages, when applicable.
+  "
+  [init]
+  {:pre [(if (s/valid? ::TaskResponse-spec init) true (throw (ex-info "Invalid input" (s/explain-data ::TaskResponse-spec init))))]}
+  (-> (merge TaskResponse-defaults init)
+      (map->TaskResponse-record)))
+
+(defn pb->TaskResponse
+  "Protobuf to TaskResponse"
+  [input]
+  (cis->TaskResponse (serdes.stream/new-cis input)))
+
+(def ^:protojure.protobuf.any/record TaskResponse-meta {:type "io.grpc.TaskResponse" :decoder pb->TaskResponse})
 
