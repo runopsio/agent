@@ -44,4 +44,3 @@
      :git-revision git-revision
      :app-version app-version
      :tags tags}))
-

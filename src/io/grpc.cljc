@@ -107,27 +107,29 @@
 ;-----------------------------------------------------------------------------
 ; RuntimeConfigurationResponse
 ;-----------------------------------------------------------------------------
-(defrecord RuntimeConfigurationResponse-record [id hc-dataset hc-api-key sentry-dsn sentry-env connection-config]
+(defrecord RuntimeConfigurationResponse-record [id org hc-dataset hc-api-key sentry-dsn sentry-env connection-config]
   pb/Writer
   (serialize [this os]
     (serdes.core/write-String 1  {:optimize true} (:id this) os)
-    (serdes.core/write-String 2  {:optimize true} (:hc-dataset this) os)
-    (serdes.core/write-String 3  {:optimize true} (:hc-api-key this) os)
-    (serdes.core/write-String 4  {:optimize true} (:sentry-dsn this) os)
-    (serdes.core/write-String 5  {:optimize true} (:sentry-env this) os)
-    (serdes.core/write-embedded 6 (:connection-config this) os))
+    (serdes.core/write-String 2  {:optimize true} (:org this) os)
+    (serdes.core/write-String 3  {:optimize true} (:hc-dataset this) os)
+    (serdes.core/write-String 4  {:optimize true} (:hc-api-key this) os)
+    (serdes.core/write-String 5  {:optimize true} (:sentry-dsn this) os)
+    (serdes.core/write-String 6  {:optimize true} (:sentry-env this) os)
+    (serdes.core/write-embedded 7 (:connection-config this) os))
   pb/TypeReflection
   (gettype [this]
     "io.grpc.RuntimeConfigurationResponse"))
 
 (s/def :io.grpc.RuntimeConfigurationResponse/id string?)
+(s/def :io.grpc.RuntimeConfigurationResponse/org string?)
 (s/def :io.grpc.RuntimeConfigurationResponse/hc-dataset string?)
 (s/def :io.grpc.RuntimeConfigurationResponse/hc-api-key string?)
 (s/def :io.grpc.RuntimeConfigurationResponse/sentry-dsn string?)
 (s/def :io.grpc.RuntimeConfigurationResponse/sentry-env string?)
 
-(s/def ::RuntimeConfigurationResponse-spec (s/keys :opt-un [:io.grpc.RuntimeConfigurationResponse/id :io.grpc.RuntimeConfigurationResponse/hc-dataset :io.grpc.RuntimeConfigurationResponse/hc-api-key :io.grpc.RuntimeConfigurationResponse/sentry-dsn :io.grpc.RuntimeConfigurationResponse/sentry-env ]))
-(def RuntimeConfigurationResponse-defaults {:id "" :hc-dataset "" :hc-api-key "" :sentry-dsn "" :sentry-env "" })
+(s/def ::RuntimeConfigurationResponse-spec (s/keys :opt-un [:io.grpc.RuntimeConfigurationResponse/id :io.grpc.RuntimeConfigurationResponse/org :io.grpc.RuntimeConfigurationResponse/hc-dataset :io.grpc.RuntimeConfigurationResponse/hc-api-key :io.grpc.RuntimeConfigurationResponse/sentry-dsn :io.grpc.RuntimeConfigurationResponse/sentry-env ]))
+(def RuntimeConfigurationResponse-defaults {:id "" :org "" :hc-dataset "" :hc-api-key "" :sentry-dsn "" :sentry-env "" })
 
 (defn cis->RuntimeConfigurationResponse
   "CodedInputStream to RuntimeConfigurationResponse"
@@ -136,11 +138,12 @@
          (fn [tag index]
              (case index
                1 [:id (serdes.core/cis->String is)]
-               2 [:hc-dataset (serdes.core/cis->String is)]
-               3 [:hc-api-key (serdes.core/cis->String is)]
-               4 [:sentry-dsn (serdes.core/cis->String is)]
-               5 [:sentry-env (serdes.core/cis->String is)]
-               6 [:connection-config (ecis->ConnectionConfig is)]
+               2 [:org (serdes.core/cis->String is)]
+               3 [:hc-dataset (serdes.core/cis->String is)]
+               4 [:hc-api-key (serdes.core/cis->String is)]
+               5 [:sentry-dsn (serdes.core/cis->String is)]
+               6 [:sentry-env (serdes.core/cis->String is)]
+               7 [:connection-config (ecis->ConnectionConfig is)]
 
                [index (serdes.core/cis->undefined tag is)]))
          is)

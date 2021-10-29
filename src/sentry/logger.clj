@@ -12,7 +12,8 @@
                config-id (:id args)
                sentry-dsn (get args :sentry-dsn sentry-dsn-noop)
                sentry-debug (= (:sentry-debug args) true)
-               sentry-env (get args :sentry-env "production")]
+               sentry-env (get args :sentry-env "production")
+               org (:org args)]
            (log/info (format "Initializing logger with configuration id=[%s], debug=[%s], env=[%s]"
                              config-id
                              sentry-debug
@@ -20,7 +21,8 @@
            (sentry/init! sentry-dsn
                          {:environment sentry-env
                           :debug sentry-debug
-                          :release app-version})))
+                          :release app-version
+                          :before-send-fn (fn [event _] (.setTag event "org" org) event)})))
 
 (defn sentry-logger
   "Log exceptions to Sentry with metadata runtime data as tags.
@@ -35,10 +37,9 @@
   ([ex task message]
    (sentry-logger {:message message
                    :throwable ex
-                   :tags (merge {:mode (name (get task :mode "runops:unknown"))
-                                 :type (get task :type "runops:unknown")
-                                 :org (get task :org "runops:unknown")
-                                 :task-id (get task :id "runops:unknown")}
+                   :tags (merge {:mode (name (get task :mode "runops:null"))
+                                 :type (get task :type "runops:null")
+                                 :task-id (get task :id "runops:null")}
                                 (when-not (clojure.string/blank? (:secret-provider task))
                                   {:secret-provider (:secret-provider task)}))}))
   ([task message]

@@ -17,11 +17,12 @@ message ConnectionConfig {
 
 message RuntimeConfigurationResponse {
   string id = 1;
-  string hc_dataset = 2;
-  string hc_api_key = 3;
-  string sentry_dsn = 4;
-  string sentry_env = 5;
-  ConnectionConfig connection_config = 6;
+  string org = 2;
+  string hc_dataset = 3;
+  string hc_api_key = 4;
+  string sentry_dsn = 5;
+  string sentry_env = 6;
+  ConnectionConfig connection_config = 7;
 }
 
 message TaskResponse {

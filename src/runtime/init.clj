@@ -43,9 +43,11 @@
             client (grpc-client)
             runtime-config (send-event client runtime-data)]
         (if-not (empty? runtime-config)
-          (do (log/info (format "Found a valid runtime configuration! id=[%s], connection-config=[%s]"
-                                (:id runtime-config)
-                                (into {} (:connection-config runtime-config))))
-              runtime-config)
+          (do
+            (log/info (format "Found a valid runtime configuration! id=[%s], org=[%s], connection-config=[%s]"
+                              (:id runtime-config)
+                              (:org runtime-config)
+                              (into {} (:connection-config runtime-config))))
+            runtime-config)
           (do (log/warn (format "Unable to retrieve runtime config, attempt [%s/6]" (inc count)))
               (recur (inc count))))))))
