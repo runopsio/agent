@@ -1,21 +1,20 @@
 (ns tracer.honeycomb
   (:require [cambium.core :as log]
-            [mount.core :refer [defstate start]]
+            [mount.core :refer [defstate] :as mount]
             [version.version :refer [app-version git-revision]]
             [agent.errors :as err])
   (:import io.opentelemetry.context.Context
            io.honeycomb.opentelemetry.HoneycombSdk$Builder
            io.honeycomb.opentelemetry.sdk.trace.samplers.DeterministicTraceSampler))
 
-(def ^:private api-key "e8f9fb62e7ff1ece4d8020df4cff5954")
-(def ^:private dataset "runops")
 (def ^:private service-name "runops-agent")
 
-(defn- build-honeycomb-sdk []
+(defn- build-honeycomb-sdk [args]
   (try
+    (log/info (format "Initializing tracer with configuration id=[%s]" (:id args)))
     (-> (new HoneycombSdk$Builder)
-        (.setApiKey api-key)
-        (.setDataset dataset)
+        (.setApiKey (get args :hc-api-key "noop"))
+        (.setDataset (get args :hc-dataset "noop"))
         (.setSampler (new DeterministicTraceSampler 1))
         (.setServiceName service-name)
         (.build))
@@ -23,7 +22,7 @@
       (log/warn (format "failed to start honeycomb sdk with error %s" e)))))
 
 (defstate ^:private honeycomb-sdk
-  :start (build-honeycomb-sdk)
+  :start (build-honeycomb-sdk (mount/args))
   :stop nil)
 
 (declare trace-task
@@ -151,7 +150,7 @@
 
 (comment
   ;; running it will create a trace on honeycomb where task-id=uuid
-  (start #'honeycomb-sdk)
+  (mount/start #'honeycomb-sdk)
   (let [id (str (java.util.UUID/randomUUID))]
     (println id)
     (err/err->> {:org "tracing-test" :id id}

@@ -2,16 +2,27 @@
   (:require [sentry-clj.core :as sentry]
             [version.version :refer [app-version]]
             [runtime.data :refer [runtime-data]]
-            [mount.core :refer [defstate]]
+            [mount.core :refer [defstate] :as mount]
             [cambium.core :as log]))
 
+(def sentry-dsn-noop "https://public:private@sentry.io/1")
+
 (defstate sentry-init
-  :start (do
-           (log/info "Initializing logger")
-           (sentry/init! "https://7bee01d63c85471188c9157e62c79771@o919346.ingest.sentry.io/5863449"
-                         {:environment "production"
-                          :debug false
-                          :release app-version})))
+  :start (let [args (mount/args)
+               config-id (:id args)
+               sentry-dsn (get args :sentry-dsn sentry-dsn-noop)
+               sentry-debug (= (:sentry-debug args) true)
+               sentry-env (get args :sentry-env "production")
+               org (:org args)]
+           (log/info (format "Initializing logger with configuration id=[%s], debug=[%s], env=[%s]"
+                             config-id
+                             sentry-debug
+                             sentry-env))
+           (sentry/init! sentry-dsn
+                         {:environment sentry-env
+                          :debug sentry-debug
+                          :release app-version
+                          :before-send-fn (fn [event _] (.setTag event "org" org) event)})))
 
 (defn sentry-logger
   "Log exceptions to Sentry with metadata runtime data as tags.
@@ -26,10 +37,9 @@
   ([ex task message]
    (sentry-logger {:message message
                    :throwable ex
-                   :tags (merge {:mode (name (get task :mode "runops:unknown"))
-                                 :type (get task :type "runops:unknown")
-                                 :org (get task :org "runops:unknown")
-                                 :task-id (get task :id "runops:unknown")}
+                   :tags (merge {:mode (name (get task :mode "runops:null"))
+                                 :type (get task :type "runops:null")
+                                 :task-id (get task :id "runops:null")}
                                 (when-not (clojure.string/blank? (:secret-provider task))
                                   {:secret-provider (:secret-provider task)}))}))
   ([task message]

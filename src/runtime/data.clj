@@ -31,15 +31,16 @@
         distro-name (get-distro-name)
         kernel-version (get-kernel-version)
         hostname (get-hostname)
-        machine-id (if (clojure.string/blank? machine-id) "runpos:unknown" machine-id)
-        distro-name (if (clojure.string/blank? distro-name) "runpos:unknown" distro-name)
-        kernel-version (if (clojure.string/blank? kernel-version) "runpos:unknown" kernel-version)
-        hostname (if (clojure.string/blank? hostname) "runpos:unknown" hostname)]
+        tags (:tags envs)
+        machine-id (if (clojure.string/blank? machine-id) "runops:null" machine-id)
+        distro-name (if (clojure.string/blank? distro-name) "runops:null" distro-name)
+        kernel-version (if (clojure.string/blank? kernel-version) "runops:null" kernel-version)
+        hostname (if (clojure.string/blank? hostname) "runops:null" hostname)
+        tags (if (clojure.string/blank? tags) "runops:null" tags)]
     {:machine-id machine-id
      :distro distro-name
      :kernel-version kernel-version
      :hostname hostname
      :git-revision git-revision
      :app-version app-version
-     :tags (get envs :tags "runpos:unknown")}))
-
+     :tags tags}))

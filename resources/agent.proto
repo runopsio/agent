@@ -5,6 +5,26 @@ message SubscriberRequest {
   string tags = 1;
 }
 
+message EventRequest {
+  map<string, string> runtime_data = 1;
+}
+
+message ConnectionConfig {
+  int32 backoff_http_poll = 1;
+  int32 backoff_grpc_connect_subscribe = 2;
+  int32 grpc_connect_channel_timeout = 3;
+}
+
+message RuntimeConfigurationResponse {
+  string id = 1;
+  string org = 2;
+  string hc_dataset = 3;
+  string hc_api_key = 4;
+  string sentry_dsn = 5;
+  string sentry_env = 6;
+  ConnectionConfig connection_config = 7;
+}
+
 message TaskResponse {
   int32 id = 1;
   string type = 2;
@@ -30,6 +50,7 @@ message LogsResponse {
 message HealthRequest{}
 
 service Agent {
+  rpc Event(EventRequest) returns (RuntimeConfigurationResponse);
   rpc Subscribe (SubscriberRequest) returns (stream TaskResponse);
   rpc Webhook (LogsRequest) returns (LogsResponse);
   rpc Health (HealthRequest) returns (HealthRequest);
