@@ -35,9 +35,9 @@
         (log/error (format "failed to poll tasks with error: %s" e))
         (sentry-logger {:message "failed to poll tasks" :throwable e})))))
 
-(defn poll [interval-in-seconds]
+(defn poll [backoff-http-poll-ms]
   (log/info "Starting task poller...")
   (async/go-loop []
-    (Thread/sleep (* interval-in-seconds 1000))
+    (Thread/sleep backoff-http-poll-ms)
     (poll-tasks)
     (recur)))
