@@ -37,7 +37,7 @@ RUN curl -sL "https://dl.k8s.io/release/v1.22.1/bin/linux/amd64/kubectl" -o kube
         aws/install && \
         aws --version && \
         rm -rf aws && \
-    curl -sL "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb" -o session-manager-plugin.deb && \
+    curl -sL "https://s3.amazonaws.com/session-manager-downloads/plugin/1.2.245.0/ubuntu_64bit/session-manager-plugin.deb" -o session-manager-plugin.deb && \
         sha256sum -c /tmp/checksum-aws-sess-manager-plugin.txt --ignore-missing --strict && \
         dpkg -i session-manager-plugin.deb && \
         rm -f /tmp/* session-manager-plugin.deb
