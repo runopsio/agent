@@ -9,14 +9,11 @@ ENV PATH="/opt/mssql-tools/bin:${PATH}"
 
 ADD checksums/* /tmp/
 
-# http://bugs.python.org/issue19846
-# > At the moment, setting "LANG=C" on a Linux system *fundamentally breaks Python 3*, and that's not OK.
-ENV LANG C.UTF-8
-
 RUN apt-get update -y && \
     apt-get install -y \
         python3-pip \
         python3-dev \
+        locales \
         apt-utils \
         curl \
         gnupg \
@@ -90,6 +87,12 @@ RUN pip3 install -U \
     retrying==1.3.3 \
     toml==0.10.2 \
     webencodings==0.5.1
+
+RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && \
+    locale-gen
+ENV LANG en_US.UTF-8
+ENV LANGUAGE en_US:en  
+ENV LC_ALL en_US.UTF-8
 
 ADD target/uberjar/agent-$VERSION-standalone.jar /agent/app.jar
 
