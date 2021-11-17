@@ -32,7 +32,9 @@
 
 (def sh-bash
   (fn [task] (let [args (clojure.string/split (:script task) #" ")]
-               (apply shell/sh args))))
+               (shell/sh args
+                         :env (assoc (clojure.walk/stringify-keys (:secrets task))
+                                     :PATH (System/getenv "PATH"))))))
 
 (def sh-hashicorp-vault
   (fn [task] (let [script-items (clojure.string/split (:script task) #" ")
