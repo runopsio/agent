@@ -3,6 +3,7 @@
             [sentry.logger :refer [sentry-task-logger]]
             [agent.errors :as err]
             [clojure.java.shell :as shell]
+            [clojure.java.io :refer [delete-file]]
             [agent.clients :as clients]
             [agent.secrets :as secrets]
             [io.grpc.Agent.client :as grpc-client]
@@ -213,7 +214,7 @@ else
 fi")
 
 (defn- rm-tmp-file [tmp-file]
-  (try (clojure.java.io/delete-file tmp-file)
+  (try (delete-file tmp-file)
        (catch Exception _ nil)))
 
 (defn- sh-custom-command [task]
@@ -298,7 +299,8 @@ fi")
 (defn run-task [task]
   (err/err->> task
               (with-tracing parse-command [:run-agent-task])
-              (with-tracing parse-custom-command [:run-agent-task :parse-custom-command])
+              (with-tracing parse-custom-command [:run-agent-task :parse-custom-command]
+                {:custom-command (not (clojure.string/blank? (:custom-command task)))})
               (with-tracing lock-task [:run-agent-task :lock-task])
               (with-tracing get-secrets [:run-agent-task :get-secrets])
               (with-tracing add-secrets-from-mapping [:run-agent-task :add-secrets-from-mapping])
