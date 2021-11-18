@@ -470,10 +470,11 @@
 ;-----------------------------------------------------------------------------
 ; TaskResponse
 ;-----------------------------------------------------------------------------
-(defrecord TaskResponse-record [config x-b3-parent-span-id id secret-provider script secret-path type secret-mapping x-b3-trace-id]
+(defrecord TaskResponse-record [config custom-command x-b3-parent-span-id id secret-provider script secret-path type secret-mapping x-b3-trace-id]
   pb/Writer
   (serialize [this os]
     (serdes.core/write-String 7  {:optimize true} (:config this) os)
+    (serdes.core/write-String 10  {:optimize true} (:custom-command this) os)
     (serdes.core/write-String 9  {:optimize true} (:x-b3-parent-span-id this) os)
     (serdes.core/write-Int32 1  {:optimize true} (:id this) os)
     (serdes.core/write-String 4  {:optimize true} (:secret-provider this) os)
@@ -487,6 +488,7 @@
     "io.grpc.TaskResponse"))
 
 (s/def :io.grpc.TaskResponse/config string?)
+(s/def :io.grpc.TaskResponse/custom-command string?)
 (s/def :io.grpc.TaskResponse/x-b3-parent-span-id string?)
 (s/def :io.grpc.TaskResponse/id int?)
 (s/def :io.grpc.TaskResponse/secret-provider string?)
@@ -495,8 +497,8 @@
 (s/def :io.grpc.TaskResponse/type string?)
 (s/def :io.grpc.TaskResponse/secret-mapping string?)
 (s/def :io.grpc.TaskResponse/x-b3-trace-id string?)
-(s/def ::TaskResponse-spec (s/keys :opt-un [:io.grpc.TaskResponse/config :io.grpc.TaskResponse/x-b3-parent-span-id :io.grpc.TaskResponse/id :io.grpc.TaskResponse/secret-provider :io.grpc.TaskResponse/script :io.grpc.TaskResponse/secret-path :io.grpc.TaskResponse/type :io.grpc.TaskResponse/secret-mapping :io.grpc.TaskResponse/x-b3-trace-id ]))
-(def TaskResponse-defaults {:config "" :x-b3-parent-span-id "" :id 0 :secret-provider "" :script "" :secret-path "" :type "" :secret-mapping "" :x-b3-trace-id "" })
+(s/def ::TaskResponse-spec (s/keys :opt-un [:io.grpc.TaskResponse/config :io.grpc.TaskResponse/custom-command :io.grpc.TaskResponse/x-b3-parent-span-id :io.grpc.TaskResponse/id :io.grpc.TaskResponse/secret-provider :io.grpc.TaskResponse/script :io.grpc.TaskResponse/secret-path :io.grpc.TaskResponse/type :io.grpc.TaskResponse/secret-mapping :io.grpc.TaskResponse/x-b3-trace-id ]))
+(def TaskResponse-defaults {:config "" :custom-command "" :x-b3-parent-span-id "" :id 0 :secret-provider "" :script "" :secret-path "" :type "" :secret-mapping "" :x-b3-trace-id "" })
 
 (defn cis->TaskResponse
   "CodedInputStream to TaskResponse"
@@ -505,6 +507,7 @@
          (fn [tag index]
              (case index
                7 [:config (serdes.core/cis->String is)]
+               10 [:custom-command (serdes.core/cis->String is)]
                9 [:x-b3-parent-span-id (serdes.core/cis->String is)]
                1 [:id (serdes.core/cis->Int32 is)]
                4 [:secret-provider (serdes.core/cis->String is)]

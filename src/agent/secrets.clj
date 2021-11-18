@@ -204,5 +204,3 @@
 
 (defmethod format-by-db "mysql-csv" [task]
   (merge-user-pass task {:MYSQL_USER (:username task) :MYSQL_PASS (:password task)}))
-
-

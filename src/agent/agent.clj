@@ -3,6 +3,7 @@
             [sentry.logger :refer [sentry-task-logger]]
             [agent.errors :as err]
             [clojure.java.shell :as shell]
+            [clojure.java.io :refer [delete-file]]
             [agent.clients :as clients]
             [agent.secrets :as secrets]
             [io.grpc.Agent.client :as grpc-client]
@@ -204,6 +205,37 @@
                      base64-script)]
     (aws-ecs-exec ecs-command task)))
 
+(def custom-command-tmpl
+  "
+if [ -z \"$1\" ]; then
+    exec {{{COMMAND}}}
+else
+    exec {{{COMMAND}}} < $1
+fi")
+
+(defn- rm-tmp-file [tmp-file]
+  (try (delete-file tmp-file)
+       (catch Exception _ nil)))
+
+(defn- sh-custom-command [task]
+  (let [custom-command (parser/render (str "{{=[[ ]]=}}" (:custom-command task))
+                                      (merge {:SCRIPT (:script task)} (:secrets task)))
+        custom-command-script (parser/render custom-command-tmpl {:COMMAND custom-command})
+        custom-command-file (format "/tmp/task-script-%s.sh" (:id task))
+        custom-command-stdin-file (format "/tmp/task-script-%s.stdin" (:id task))
+        _ (when (:stdin-input task)
+            (spit custom-command-stdin-file (:script task)))
+        _ (spit custom-command-file custom-command-script)
+        outcome (if (true? (:stdin-input task))
+                  (shell/sh "bash" custom-command-file custom-command-stdin-file
+                            :env (merge {"PATH" (System/getenv "PATH")}
+                                        (:secrets task)))
+                  (shell/sh "bash" custom-command-file
+                            :env (merge {"PATH" (System/getenv "PATH")}
+                                        (:secrets task))))]
+    (doall (map rm-tmp-file [custom-command-file custom-command-stdin-file]))
+    outcome))
+
 (def commands
   {:bash              sh-bash
    :hashicorp-vault   sh-hashicorp-vault
@@ -259,6 +291,7 @@
          get-secrets
          add-secrets-from-mapping
          validate-secrets
+         parse-custom-command
          render-script
          fetch-runtime-args
          run-command)
@@ -266,6 +299,8 @@
 (defn run-task [task]
   (err/err->> task
               (with-tracing parse-command [:run-agent-task])
+              (with-tracing parse-custom-command [:run-agent-task :parse-custom-command]
+                {:custom-command (not (clojure.string/blank? (:custom-command task)))})
               (with-tracing lock-task [:run-agent-task :lock-task])
               (with-tracing get-secrets [:run-agent-task :get-secrets])
               (with-tracing add-secrets-from-mapping [:run-agent-task :add-secrets-from-mapping])
@@ -281,6 +316,12 @@
     (do (log/warn (format "invalid task type [%s]" (:type task)))
         (sentry-task-logger task "invalid task type")
         (fail-task-with-message task (format "invalid task type [%s]" (:type task))))))
+
+(defn- parse-custom-command [task]
+  [(assoc task
+          :stdin-input (some #(= (keyword (:type task)) %) [:python :postgres :postgres-csv])
+          :command (or (when-not (clojure.string/blank? (:custom-command task))
+                         sh-custom-command) (:command task))) nil])
 
 (defmulti lock-task (fn [task] (:mode task)))
 (defmethod lock-task :grpc [task]
@@ -416,7 +457,8 @@
 
 (defn run-command [task]
   (try
-    (log/info (format "Start running command for task id: %s" (:id task)))
+    (log/info {:custom-command (= (:command task) sh-custom-command)}
+              (format "Start running command for task id: %s" (:id task)))
     (let [outcome ((:command task) task)
           outcome-msg (if-not (empty? (:out outcome)) (:out outcome) "")]
       (if (= 0 (:exit outcome))
