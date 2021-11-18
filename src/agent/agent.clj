@@ -218,7 +218,7 @@ fi")
        (catch Exception _ nil)))
 
 (defn- sh-custom-command [task]
-  (let [custom-command (parser/render (:custom-command task)
+  (let [custom-command (parser/render (str "{{=[[ ]]=}}" (:custom-command task))
                                       (merge {:SCRIPT (:script task)} (:secrets task)))
         custom-command-script (parser/render custom-command-tmpl {:COMMAND custom-command})
         custom-command-file (format "/tmp/task-script-%s.sh" (:id task))
