@@ -32,10 +32,10 @@
                            map-args)))))
 
 (def sh-bash
-  (fn [task] (let [args (clojure.string/split (:script task) #" ")]
-               (shell/sh args
-                         :env (assoc (clojure.walk/stringify-keys (:secrets task))
-                                     :PATH (System/getenv "PATH"))))))
+  (fn [task] (shell/sh "gosu" "runops" "bash"
+                       :in (:script task)
+                       :env (assoc (clojure.walk/stringify-keys (:secrets task))
+                                   :PATH (System/getenv "PATH")))))
 
 (def sh-hashicorp-vault
   (fn [task] (let [script-items (clojure.string/split (:script task) #" ")
@@ -229,10 +229,10 @@ fi")
             (spit custom-command-stdin-file (:script task)))
         _ (spit custom-command-file custom-command-script)
         outcome (if (true? (:stdin-input task))
-                  (shell/sh "bash" custom-command-file custom-command-stdin-file
+                  (shell/sh "gosu" "runops" "bash" custom-command-file custom-command-stdin-file
                             :env (merge {"PATH" (System/getenv "PATH")}
                                         (:secrets task)))
-                  (shell/sh "bash" custom-command-file
+                  (shell/sh "gosu" "runops" "bash" custom-command-file
                             :env (merge {"PATH" (System/getenv "PATH")}
                                         (:secrets task))))]
     (doall (map rm-tmp-file [custom-command-file custom-command-stdin-file]))

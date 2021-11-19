@@ -14,6 +14,7 @@ RUN apt-get update -y && \
         python3-pip \
         python3-dev \
         locales \
+        gosu \
         apt-utils \
         curl \
         gnupg \
@@ -21,7 +22,8 @@ RUN apt-get update -y && \
         groff \
         unzip \
         expect \
-        lsb-release
+        lsb-release && \
+	adduser runops --system --group
 
 # kubectl / aws-cli / aws-session-manager
 RUN curl -sL "https://dl.k8s.io/release/v1.22.1/bin/linux/amd64/kubectl" -o kubectl && \
