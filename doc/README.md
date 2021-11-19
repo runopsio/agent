@@ -6,6 +6,7 @@ then the API will persist the task in a `ready` state, and this agent will perio
 poll the tasks and execute them.
 
 ## Minimal required variables:
+
 - TOKEN (token must be a base64 of the `org:clear-text-token` string. Clear text token is stored in orgs table with a sha-256 encoding)
 
 ## Optional variables:
@@ -28,6 +29,9 @@ lein run
 # or run on grpc mode only
 lein run-grpc-dev
 ```
+
+> For local development create a symbolic link to `gosu` if you wish to bypass running commands as `runops` user. e.g.: darwin64.
+> `ln -s /path/to/agent/scripts/fake-gosu.sh /usr/local/bin/gosu`
 
 ### Run Tests
 
