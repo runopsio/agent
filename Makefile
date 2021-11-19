@@ -26,11 +26,16 @@ test:
 build:
 	lein bump-version ${MUTABLE_VERSION}
 	lein uberjar
-	docker build --build-arg VERSION=${MUTABLE_VERSION} -t ${MUTABLE_IMAGE} .
-	docker tag ${MUTABLE_IMAGE} ${IMMUTABLE_IMAGE}
 
 release:
 	./scripts/gh-release.sh
+
+gh-upload:
+	gh release upload ${MUTABLE_VERSION} ./target/uberjar/agent-${MUTABLE_VERSION}-standalone.jar
+
+docker-build:
+	docker build --build-arg VERSION=${MUTABLE_VERSION} -t ${MUTABLE_IMAGE} .
+	docker tag ${MUTABLE_IMAGE} ${IMMUTABLE_IMAGE}
 
 docker-immutable-push:
 	docker push ${IMMUTABLE_IMAGE}
@@ -38,4 +43,4 @@ docker-immutable-push:
 docker-mutable-push:
 	docker push ${MUTABLE_IMAGE}
 
-docker-push: docker-mutable-push docker-immutable-push
+docker-push: docker-mutable-push

@@ -1,4 +1,3 @@
-
 name: Publish
 
 on:
@@ -43,9 +42,16 @@ jobs:
       - name: Test
         run: make test
 
-      - name: Build
+      - name: Build Jar
         run: make build
+
+      - name: Publish Jar
+        run: make gh-upload
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build Docker Image
+        run: make docker-build
       
-      - name: Publish
+      - name: Publish Docker Image
         run: make docker-push
-  
