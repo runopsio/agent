@@ -153,6 +153,13 @@
                        :env (assoc (clojure.walk/stringify-keys (:secrets task))
                                    :PATH (System/getenv "PATH")))))
 
+(defn sh-node [task]
+  (shell/sh "node"
+            :in (:script task)
+            :env (assoc (clojure.walk/stringify-keys (:secrets task))
+                        :PATH (System/getenv "PATH")
+                        :NODE_PATH "/usr/local/lib/node_modules/")))
+
 (def sh-rails
   (fn [task] (shell/sh "rails" (:script task))))
 
@@ -247,6 +254,7 @@ fi")
    :mongodb           sh-mongo
    :mysql             sh-mysql
    :mysql-csv         sh-mysql-csv
+   :node              sh-node
    :postgres          sh-postgres
    :postgres-csv      sh-postgres-csv
    :sql-server        sh-mssql
