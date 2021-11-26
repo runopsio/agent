@@ -5,8 +5,7 @@
             [backoff.time :as backoff]
             [clojure.data.json :as json]
             [clj-http.client :as client]
-            [sentry.logger :refer [sentry-logger
-                                   sentry-task-logger]]
+            [sentry.logger :refer [sentry-logger]]
             [clojure.walk :refer [stringify-keys keywordize-keys]]
             [runtime.data :refer [runtime-data jwk-url]]))
 
