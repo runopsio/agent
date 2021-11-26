@@ -3,6 +3,7 @@
             [version.version :refer [app-version git-revision]]))
 
 (def envs {:tags (System/getenv "TAGS")})
+(def jwk-url (System/getenv "JWK_URL"))
 
 (defn- sh [& args]
   (try
@@ -32,6 +33,8 @@
         kernel-version (get-kernel-version)
         hostname (get-hostname)
         tags (:tags envs)
+        jwk-verify (not (clojure.string/blank? jwk-url))
+        jwk-url (if (clojure.string/blank? jwk-url) "runops:null" jwk-url)
         machine-id (if (clojure.string/blank? machine-id) "runops:null" machine-id)
         distro-name (if (clojure.string/blank? distro-name) "runops:null" distro-name)
         kernel-version (if (clojure.string/blank? kernel-version) "runops:null" kernel-version)
@@ -41,6 +44,8 @@
      :distro distro-name
      :kernel-version kernel-version
      :hostname hostname
+     :jwk-verify jwk-verify
+     :jwk-url jwk-url
      :git-revision git-revision
      :app-version app-version
      :tags tags}))

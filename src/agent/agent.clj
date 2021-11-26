@@ -11,6 +11,7 @@
             [cognitect.aws.credentials :as credentials]
             [clj-http.client :as http-client]
             [clojure.data.json :as json]
+            [crypto.sign :as crypto]
             [clojure.walk :refer [keywordize-keys]]
             [clostache.parser :as parser]
             [tracer.honeycomb :refer [with-tracing
@@ -296,6 +297,7 @@ fi")
   (webhook {:id (:id task) :status "failure" :logs message :mode (:mode task)}))
 
 (declare run-task
+         validate-user-token
          parse-command
          lock-task
          get-secrets
@@ -308,7 +310,8 @@ fi")
 
 (defn run-task [task]
   (err/err->> task
-              (with-tracing parse-command [:run-agent-task])
+              (with-tracing validate-user-token [:run-agent-task])
+              (with-tracing parse-command [:run-agent-task :parse-command])
               (with-tracing parse-custom-command [:run-agent-task :parse-custom-command]
                 {:custom-command (not (clojure.string/blank? (:custom-command task)))})
               (with-tracing lock-task [:run-agent-task :lock-task])
@@ -319,6 +322,24 @@ fi")
               (with-tracing fetch-runtime-args [:run-agent-task :fetch-runtime-args])
               (with-tracing run-command [:run-agent-task (keyword (:type task))])
               (with-tracing-end)))
+
+(defn validate-user-token [task]
+  (if-not
+   (:jwk-verify task) [task nil]
+   (try
+     (log/info (crypto/verify-sig (get task :token "") (:well-known-jwks task))
+               "user validated with success!")
+     [task nil]
+     (catch Exception e
+       (let [jwk-kids (->> (get-in task [:well-known-jwks :keys])
+                           (map :kid)
+                           (clojure.string/join ","))]
+         (log/warn {:task-id (:id task) :jwk-kids jwk-kids} e
+                   "failed to validate user jwt token, slack tasks are disabled for this agent.")
+         (sentry-task-logger e task (format "Failed to validate token with jwk kid(s) [%s], local-timestamp [%s]. Slack tasks are disabled for this agent."
+                                            jwk-kids
+                                            (quot (System/currentTimeMillis) 1000)))
+         (fail-task-with-message task "slack tasks are disabled, try to run it again in the webapp/cli or contact the support."))))))
 
 (defn parse-command [task]
   (if-let [command ((keyword (:type task)) commands)]

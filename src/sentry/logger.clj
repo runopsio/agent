@@ -30,7 +30,7 @@
   See more: https://github.com/getsentry/sentry-clj/tree/5.2.158"
   [event]
   (sentry/send-event
-   (assoc event :tags (conj (:tags event) (dissoc runtime-data :app-version)))))
+   (assoc event :tags (conj (get event :tags {}) (dissoc runtime-data :app-version)))))
 
 (defn sentry-task-logger
   "Extract useful information from a runops task and add as a context"
