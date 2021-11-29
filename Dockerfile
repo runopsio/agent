@@ -108,7 +108,11 @@ RUN npm install --global moment@2.29.1 \
     axios@0.24.0 \
     mongodb@4.2.0 \
     mysql@2.18.1 \
-    pg@8.7.1
+    pg@8.7.1 \
+    aws-sdk@2.1038.0 \
+    mongoose@6.0.13 \
+    moment-timezone@0.5.34 \
+    lodash@4.17.21
 
 RUN pip3 install -U \
     boto3==1.18.31 \
