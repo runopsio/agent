@@ -4,6 +4,7 @@
             [agent.agent :as agent]
             [io.grpc.Agent.client :as agent-client]
             [cambium.core :as log]
+            [runtime.data :refer [runtime-data]]
             [sentry.logger :refer [sentry-task-logger]]))
 
 (def grpc-channels (atom {}))
@@ -18,7 +19,7 @@
 (defn process-message [task]
   (log/info (format "received task to run id: %s" (:id task)))
   (try
-    (async/go (agent/run-task (assoc task :mode :grpc)))
+    (async/go (agent/run-task (assoc task :mode :grpc :jwk-verify (:jwk-verify runtime-data))))
     (catch Exception e
       (log/error (format "failed to run task id %s command with error: %s" (:id task) e))
       (sentry-task-logger e task "failed to process message"))))
@@ -46,7 +47,7 @@
         (when (clients/grpc-client-alive?)
           (subscribe)))))
 
-(defn listen-subscription [channel-timeout-ms backoff-subscribe-ms]
+(defn listen-subscription [well-known-jwks channel-timeout-ms backoff-subscribe-ms]
   (grpc-connect-subscribe {})
 
   (log/info "starting gRPC listener...")
@@ -59,7 +60,7 @@
           (do (log/info "did not receive any ping in past 5 minutes... restarting gRPC connection")
               (grpc-connect-subscribe {:delay backoff-subscribe-ms}))
           (if msg
-            (process-message msg)
+            (process-message (assoc msg :well-known-jwks well-known-jwks))
             (do (log/warn "gRPC server has closed the subscription channel...")
                 (grpc-connect-subscribe {:delay backoff-subscribe-ms})))))
       (grpc-connect-subscribe {:delay backoff-subscribe-ms}))

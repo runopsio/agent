@@ -19,7 +19,7 @@
         (.setServiceName service-name)
         (.build))
     (catch Exception e
-      (log/warn (format "failed to start honeycomb sdk with error %s" e)))))
+      (log/warn e "failed to start honeycomb sdk"))))
 
 (defstate ^:private honeycomb-sdk
   :start (build-honeycomb-sdk (mount/args))
@@ -109,8 +109,15 @@
                             :agent-revision git-revision}))
          fn-result (call-traced-fn traced-fn (assoc task :tracing-spans
                                                     {root-key root-span}))
-         task-err (second fn-result)]
-     (set-span-attribute root-span "error" task-err)
+         task-err (second fn-result)
+         ;; the traced-fn could output sometimes [nil <task>] which
+         ;; breaks the pattern of [nil <err>],
+         ;; this is an attempt to normalize the output.
+         task-output (cond
+                       (= (:status task-err) "failure") (:logs task-err)
+                       (= (string? task-err) task-err)
+                       "")]
+     (set-span-attribute root-span "error" task-output)
      (when (some? task-err)
        ((with-tracing-end) task))
      fn-result)))
@@ -135,7 +142,7 @@
       (.setAttribute span key (str value)))
     span
     (catch Exception e
-      (log/warn (format "failed to set span attribute with error %s" e)))))
+      (log/warn e "failed to set span attribute"))))
 
 (defn- set-span-attribute-list [span attribute-list]
   (if (= (count attribute-list) 0)

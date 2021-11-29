@@ -36,6 +36,7 @@ message TaskResponse {
   string x_b3_trace_id = 8;
   string x_b3_parent_span_id = 9;
   string custom_command = 10;
+  string token = 11;
 }
 
 message LogsRequest {

@@ -6,6 +6,8 @@
   :dependencies [[org.clojure/clojure "1.10.3"]
                  [org.clojure/core.async "1.3.610"]
                  [org.clojure/data.json "1.0.0"]
+                 [buddy/buddy-core "1.10.1"]
+                 [buddy/buddy-sign "3.4.1"]
 
                  ; gRPC
                  [protojure "1.5.11"]

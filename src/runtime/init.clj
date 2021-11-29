@@ -3,8 +3,11 @@
             [io.grpc.Agent.client :as agent-client]
             [cambium.core :as log]
             [backoff.time :as backoff]
-            [clojure.walk :refer [stringify-keys]]
-            [runtime.data :refer [runtime-data]]))
+            [clojure.data.json :as json]
+            [clj-http.client :as client]
+            [sentry.logger :refer [sentry-logger]]
+            [clojure.walk :refer [stringify-keys keywordize-keys]]
+            [runtime.data :refer [runtime-data jwk-url]]))
 
 (def ^:private send-event-timeout-ms (backoff/sec->ms 15))
 (def ^:private backoff-max-attempts-ms (backoff/min->ms 5))
@@ -51,3 +54,19 @@
             runtime-config)
           (do (log/warn (format "Unable to retrieve runtime config, attempt [%s/6]" (inc count)))
               (recur (inc count))))))))
+
+(defn fetch-jwks-pubkeys
+  "keywordize-keys of a jwk public key structure from an auth provider.
+   In case of error fetching the public keys, the app will hang"
+  []
+  (if-not
+   (:jwk-verify runtime-data) nil
+   (try
+     (->> (:body (client/get jwk-url))
+          json/read-str
+          keywordize-keys)
+     (catch Exception e
+       (log/error {:jwk-url jwk-url} e "failed to obtain JWK public keys")
+       ;; passing the :throwable here strangely doesn't work 
+       (sentry-logger {:message (format "failed to obtain JWK public keys, ex-info: %s" e)})
+       (System/exit 1)))))

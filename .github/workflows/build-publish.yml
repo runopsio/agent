@@ -54,4 +54,4 @@ jobs:
         run: make docker-build
       
       - name: Publish Docker Image
-        run: make docker-push
+        run: make docker-mutable-push
