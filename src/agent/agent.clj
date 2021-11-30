@@ -12,6 +12,7 @@
             [clj-http.client :as http-client]
             [clojure.data.json :as json]
             [crypto.sign :as crypto]
+            [backoff.time :as backoff]
             [clojure.walk :refer [keywordize-keys]]
             [clostache.parser :as parser]
             [tracer.honeycomb :refer [with-tracing
@@ -269,8 +270,9 @@ fi")
 (defmethod webhook :grpc [task]
   (log/info (format "Starting task webhook via gRPC for task id [%s] with status [%s]" (:id task) (:status task)))
   (try
-    @(grpc-client/Webhook (clients/grpc-client) (dissoc task :mode))
-    (log/info (format "End of task execution for id [%s]" (:id task)))
+    (let [res (deref (grpc-client/Webhook (clients/grpc-client) (dissoc task :mode))
+                     (backoff/sec->ms 10) nil)]
+      (log/info {:task-id (:id task) :webhook-timeout (empty? res)} "End of webhook call via gRPC."))
     [nil task]
     (catch Exception e
       (log/error (format "Failed to run webhook for task id [%s] with error: %s" (:id task) e))
