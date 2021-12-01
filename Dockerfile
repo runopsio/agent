@@ -112,7 +112,8 @@ RUN npm install --global moment@2.29.1 \
     aws-sdk@2.1038.0 \
     mongoose@6.0.13 \
     moment-timezone@0.5.34 \
-    lodash@4.17.21
+    lodash@4.17.21 \
+    firebase-admin@10.0.0
 
 RUN pip3 install -U \
     boto3==1.18.31 \
