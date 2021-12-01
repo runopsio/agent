@@ -6,7 +6,7 @@
             [clojure.data.json :as json]
             [clj-http.client :as client]
             [sentry.logger :refer [sentry-logger]]
-            [clojure.walk :refer [stringify-keys keywordize-keys]]
+            [clojure.walk :refer [keywordize-keys]]
             [runtime.data :refer [runtime-data jwk-url]]))
 
 (def ^:private send-event-timeout-ms (backoff/sec->ms 15))
