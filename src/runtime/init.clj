@@ -23,9 +23,9 @@
       (clients/connect-grpc {})
       (grpc-client))))
 
-(defn- send-event [client runtime-data]
+(defn- send-event [client data]
   (try
-    (deref (agent-client/Event client {:runtime-data runtime-data})
+    (deref (agent-client/Event client {:runtime-data data})
            send-event-timeout-ms
            nil)
     (catch Exception e
@@ -42,7 +42,7 @@
                             (backoff/ms->min backoff-max-attempts-ms)))
           (Thread/sleep backoff-max-attempts-ms)
           (fetch-agent-config))
-      (let [runtime-data (stringify-keys runtime-data)
+      (let [runtime-data (zipmap (map name (keys runtime-data)) (map str (vals runtime-data)))
             client (grpc-client)
             runtime-config (send-event client runtime-data)]
         (if-not (empty? runtime-config)
