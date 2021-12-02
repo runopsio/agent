@@ -125,6 +125,7 @@ RUN pip3 install -U \
     distlib==0.3.1 \
     distro==1.5.0 \
     html5lib==1.1 \
+    kubernetes==20.13.0 \
     lockfile==0.12.2 \
     msgpack==1.0.2 \
     ordered-set==4.0.2 \
@@ -134,9 +135,11 @@ RUN pip3 install -U \
     pep517==0.9.1 \
     progress==1.5 \
     psycopg2-binary==2.9.1 \
+    PyMySQL==1.0.2 \
     pyparsing==2.4.7 \
     pytoml==0.1.21 \
     pytz==2021.1 \
+    PyYAML==6.0 \
     requests==2.26.0 \
     SQLAlchemy==1.4.23 \
     retrying==1.3.3 \
