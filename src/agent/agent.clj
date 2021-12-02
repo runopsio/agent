@@ -352,7 +352,7 @@ fi")
 
 (defn- parse-custom-command [task]
   [(assoc task
-          :stdin-input (some #(= (keyword (:type task)) %) [:python :postgres :postgres-csv])
+          :stdin-input (some #(= (keyword (:type task)) %) [:python :postgres :postgres-csv :bash])
           :command (or (when-not (clojure.string/blank? (:custom-command task))
                          sh-custom-command) (:command task))) nil])
 
