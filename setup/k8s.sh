@@ -8,7 +8,7 @@ kubectl -n runops delete secret agent-config || true
 kubectl -n runops create secret generic agent-config \
   --from-literal=TOKEN=$AGENT_TOKEN \
   --from-literal=TAGS=$AGENT_TAG \
-  --from-literar=JWK_URL=$AGENT_JWK_URL \
+  --from-literal=JWK_URL=$AGENT_JWK_URL \
   --from-literal=ENV_CONFIG=$ENV_CONFIG \
   --from-literal=AWS_SECRET_MANAGER=false
 kubectl delete po -n runops -l app=agent || true
