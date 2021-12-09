@@ -36,6 +36,10 @@ spec:
             name: agent-config
         image: runops/agent
         imagePullPolicy: Always
+        resources:
+          requests:
+            memory: "1024Mi"
+            cpu: "500m"
         name: agent
 EOF
 
