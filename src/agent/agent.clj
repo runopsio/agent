@@ -266,16 +266,35 @@ fi")
    :rails-console-k8s sh-rails-console-k8s
    :rails-console-ecs sh-rails-console-ecs})
 
+(def webhook-call-lock (Object.))
+
+(defn webhook-grpc-call [client data]
+  (try
+    [(locking webhook-call-lock
+       (deref (grpc-client/Webhook client data) (backoff/sec->ms 5) nil)) nil]
+    (catch Exception e
+      ;; try to reconnect on errors and wait a few seconds
+      ;; always lock to prevent other threads from reusing it
+      ;; when a reconnecting is in place
+      (locking webhook-call-lock
+        (clients/connect-grpc {})
+        (Thread/sleep 2000))
+      [nil e])))
+
 (defmulti webhook (fn [task] (:mode task)))
 (defmethod webhook :grpc [task]
-  (log/info (format "Starting task webhook via gRPC for task id [%s] with status [%s]" (:id task) (:status task)))
+  (log/info {:client-alive (clients/grpc-client-alive?)}
+            (format "Starting task webhook via gRPC for task id [%s] with status [%s]" (:id task) (:status task)))
   (try
-    (let [res (deref (grpc-client/Webhook (clients/grpc-client) (dissoc task :mode))
-                     (backoff/sec->ms 10) nil)]
+    (let [[res err] (loop [attempts 3 grpc-response nil err nil]
+                      (if (or (not (empty? grpc-response)) (= attempts 0)) [grpc-response err]
+                          (let [[res err] (webhook-grpc-call (clients/grpc-client) (dissoc task :mode))]
+                            (recur (dec attempts) res err))))
+          _ (when (some? err) (throw err))]
       (log/info {:task-id (:id task) :webhook-timeout (empty? res)} "End of webhook call via gRPC."))
     [nil task]
     (catch Exception e
-      (log/error (format "Failed to run webhook for task id [%s] with error: %s" (:id task) e))
+      (log/error e (format "Failed to run webhook for task id [%s]" (:id task)))
       (sentry-task-logger e task "failed to perform webhook")
       [nil "webhook failed"])))
 
@@ -300,6 +319,7 @@ fi")
 
 (declare run-task
          validate-user-token
+         validate-queue
          parse-command
          lock-task
          get-secrets
@@ -313,6 +333,7 @@ fi")
 (defn run-task [task]
   (err/err->> task
               (with-tracing validate-user-token [:run-agent-task])
+              (with-tracing validate-queue [:run-agent-task :validate-queue])
               (with-tracing parse-command [:run-agent-task :parse-command])
               (with-tracing parse-custom-command [:run-agent-task :parse-custom-command]
                 {:custom-command (not (clojure.string/blank? (:custom-command task)))})
@@ -324,6 +345,15 @@ fi")
               (with-tracing fetch-runtime-args [:run-agent-task :fetch-runtime-args])
               (with-tracing run-command [:run-agent-task (keyword (:type task))])
               (with-tracing-end)))
+
+(defn validate-queue [task]
+  (if (> (get task :queue-lenght 0) 29)
+    (do
+      (log/warn "too many tasks in queue [30/30]")
+      (sentry-task-logger nil task "Too Many Tasks in Queue [30/30]")
+      (fail-task-with-message task "Too Many Tasks in Queue [30/30]")
+      [nil "too many tasks in queue [30/30]"])
+    [task nil]))
 
 (defn validate-user-token [task]
   (if-not

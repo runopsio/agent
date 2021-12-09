@@ -29,8 +29,8 @@
            send-event-timeout-ms
            nil)
     (catch Exception e
-      (log/error (format "Failed to fetch runtime config, backing off for [%s] second(s). ex=%s"
-                         (backoff/ms->sec send-event-timeout-ms) e))
+      (log/error e (format "Failed to fetch runtime config, backing off for [%s] second(s)"
+                           (backoff/ms->sec send-event-timeout-ms)))
       (Thread/sleep send-event-timeout-ms)
       nil)))
 
