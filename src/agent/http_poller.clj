@@ -6,8 +6,7 @@
             [agent.agent :as agent]
             [runtime.data :refer [runtime-data]]
             [camel-snake-kebab.extras :as cske]
-            [camel-snake-kebab.core :as csk]
-            [clojure.core.async :as async]))
+            [camel-snake-kebab.core :as csk]))
 
 (def poll-params
   (conj {:runner_provider "runops" :status "ready"}
