@@ -8,8 +8,10 @@ gh release list -L 10
 
 read -rep $'\nWhich version do you like to release?\n=> ' GIT_TAG
 NOTE_FILE="$(mktemp).md"
+GIT_COMMIT=$(git log -1 --pretty=format:%B)
 cat - >$NOTE_FILE <<EOF
 # Type 'o' and write the release notes in markdown syntax
+$GIT_COMMIT
 EOF
 ${VISUAL:-${EDITOR:-vi}} $NOTE_FILE
 
