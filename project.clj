@@ -10,11 +10,11 @@
                  [buddy/buddy-sign "3.4.1"]
 
                  ; gRPC
-                 [protojure "1.5.11"]
+                 [protojure "1.5.14"]
                  [protojure/google.protobuf "0.9.1"]
-                 [com.google.protobuf/protobuf-java "3.13.0"]
-                 [org.eclipse.jetty.http2/http2-client "9.4.20.v20190813"]
-                 [org.eclipse.jetty/jetty-alpn-java-client "9.4.28.v20200408"]
+                 [com.google.protobuf/protobuf-java "3.15.6"]
+                 [org.eclipse.jetty.http2/http2-client "9.4.38.v20210224"]
+                 [org.eclipse.jetty/jetty-alpn-java-client "9.4.38.v20210224"]
                  [org.ow2.asm/asm "8.0.1"]
 
                  ; monitoring

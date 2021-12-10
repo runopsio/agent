@@ -126,6 +126,7 @@
   (try
     (traced-fn task)
     (catch Exception e
+      (log/error e "failed processing task")
       [nil (format "failed in processing, err=%s" (.getMessage e))])))
 
 (defn- safe-end [span]

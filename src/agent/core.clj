@@ -40,7 +40,7 @@
                       grpc-channel-timeout
                       backoff-grpc-connect-subscribe
                       backoff-http-poll))
-    (grpc/listen-subscription well-known-jwks grpc-channel-timeout backoff-grpc-connect-subscribe)
+    (future (grpc/listen-subscription well-known-jwks grpc-channel-timeout backoff-grpc-connect-subscribe))
     (http/poll backoff-http-poll)))
 
 (defn run-grpc-dev []

@@ -5,7 +5,6 @@
             [protojure.grpc.client.providers.http2 :as grpc.http2])
   (:import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient))
 
-
 (def tags (System/getenv "TAGS"))
 (def token (System/getenv "TOKEN"))
 (def api-url (or (System/getenv "API_URL") "https://api.runops.io"))
@@ -15,7 +14,6 @@
 
 (defn decode-base64 [str]
   (String. (b64/decode str)))
-
 
 ; gRPC client
 (def grpc-client-atom (atom {}))
@@ -61,11 +59,17 @@
 
 (defmethod add-delay false [_])
 
+(defn disconnect-grpc []
+  (when-let [c (grpc-client)]
+    (try (.disconnect c)
+         (catch Exception _)))
+  (reset! grpc-client-atom {}))
+
 (defn connect-grpc [data]
   (log/info "Trying to connect to gRPC server...")
   (add-delay data)
+  (disconnect-grpc)
   (start-grpc))
-
 
 ; aws secret manager client
 (declare aws-client-start aws-client-stop)

@@ -34,12 +34,12 @@
         hostname (get-hostname)
         tags (:tags envs)
         jwk-verify (not (clojure.string/blank? jwk-url))
-        jwk-url (if (clojure.string/blank? jwk-url) "runops:null" jwk-url)
-        machine-id (if (clojure.string/blank? machine-id) "runops:null" machine-id)
-        distro-name (if (clojure.string/blank? distro-name) "runops:null" distro-name)
-        kernel-version (if (clojure.string/blank? kernel-version) "runops:null" kernel-version)
-        hostname (if (clojure.string/blank? hostname) "runops:null" hostname)
-        tags (if (clojure.string/blank? tags) "runops:null" tags)]
+        jwk-url (if (clojure.string/blank? jwk-url) "" jwk-url)
+        machine-id (if (clojure.string/blank? machine-id) "" machine-id)
+        distro-name (if (clojure.string/blank? distro-name) "" distro-name)
+        kernel-version (if (clojure.string/blank? kernel-version) "" kernel-version)
+        hostname (if (clojure.string/blank? hostname) "" hostname)
+        tags (if (clojure.string/blank? tags) "" tags)]
     {:machine-id machine-id
      :distro distro-name
      :kernel-version kernel-version
