@@ -286,7 +286,7 @@ fi")
   (log/info {:client-alive (clients/grpc-client-alive?)}
             (format "Starting task webhook via gRPC for task id [%s] with status [%s]" (:id task) (:status task)))
   (try
-    (let [[res err] (loop [attempts 3 grpc-response nil err nil]
+    (let [[res err] (loop [attempts 5 grpc-response nil err nil]
                       (if (or (not (empty? grpc-response)) (= attempts 0)) [grpc-response err]
                           (let [[res err] (webhook-grpc-call (clients/grpc-client) (dissoc task :mode))]
                             (recur (dec attempts) res err))))
