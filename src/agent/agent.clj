@@ -239,10 +239,12 @@ fi")
         _ (spit custom-command-file custom-command-script)
         outcome (if (true? (:stdin-input task))
                   (shell/sh "gosu" "runops" "bash" custom-command-file custom-command-stdin-file
-                            :env (merge {"PATH" (System/getenv "PATH")}
+                            :env (merge {"PATH" (System/getenv "PATH")
+                                         "HOME" (System/getenv "HOME")}
                                         (:secrets task)))
                   (shell/sh "gosu" "runops" "bash" custom-command-file
-                            :env (merge {"PATH" (System/getenv "PATH")}
+                            :env (merge {"PATH" (System/getenv "PATH")
+                                         "HOME" (System/getenv "HOME")}
                                         (:secrets task))))]
     (doall (map rm-tmp-file [custom-command-file custom-command-stdin-file]))
     outcome))
@@ -384,7 +386,7 @@ fi")
           :stdin-input (some #(= (keyword (:type task)) %) [:bash :python
                                                             :postgres :postgres-csv
                                                             :mysql :mysql-csv])
-          :command (or (when-not (clojure.string/blank? (:custom-command task))
+            :command (or (when-not (clojure.string/blank? (:custom-command task))
                          sh-custom-command) (:command task))) nil])
 
 (defmulti lock-task (fn [task] (:mode task)))
@@ -521,7 +523,8 @@ fi")
 
 (defn run-command [task]
   (try
-    (log/info {:custom-command (= (:command task) sh-custom-command)}
+    (log/info {:custom-command (= (:command task) sh-custom-command)
+               :stdin-input (:stdin-input task)}
               (format "Start running command for task id: %s" (:id task)))
     (let [outcome ((:command task) task)
           outcome-msg (if-not (empty? (:out outcome)) (:out outcome) "")]

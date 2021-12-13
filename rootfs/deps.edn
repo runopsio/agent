@@ -1,0 +1,7 @@
+{:deps
+ {clj-http/clj-http {:mvn/version "3.12.3"}
+  org.clojure/data.json {:mvn/version "1.0.0"}
+  com.xtdb/xtdb-core {:mvn/version "1.19.0"}
+  com.xtdb/xtdb-jdbc {:mvn/version "1.19.0"}
+  mysql/mysql-connector-java {:mvn/version "8.0.19"}
+  org.ow2.asm/asm {:mvn/version "8.0.1"}}}
