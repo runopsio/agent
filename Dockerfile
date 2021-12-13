@@ -3,6 +3,7 @@ MAINTAINER RunOps first@runops.io
 
 ARG VERSION
 ARG NODE_VERSION=16.13.0
+ARG CLOJURE_VERSION=1.10.3.1040
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV ACCEPT_EULA=y
@@ -104,6 +105,14 @@ RUN apt-get update -y && \
         setcap cap_ipc_lock= /usr/bin/vault && \
         ln -s /usr/bin/vault /usr/sbin/vault
 
+# clojure
+RUN curl -sL https://download.clojure.org/install/linux-install-$CLOJURE_VERSION.sh -o clojure-install.sh && \
+    sha256sum clojure-install.sh && \
+    echo "665e35e8d7dd0996edaba36220fd5048fee95f5155ec0426f628f18770239821 clojure-install.sh" | sha256sum -c - && \
+    bash clojure-install.sh && \
+    rm clojure-install.sh && \
+    clojure -e "(clojure-version)"
+
 RUN npm install --global moment@2.29.1 \
     axios@0.24.0 \
     mongodb@4.2.0 \
@@ -147,7 +156,9 @@ RUN pip3 install -U \
     webencodings==0.5.1
 
 RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && \
-    locale-gen
+    locale-gen && \
+    mkdir -p /.cpcache && \
+    chown runops: -R /.cpcache
 ENV LANG en_US.UTF-8
 ENV LANGUAGE en_US:en  
 ENV LC_ALL en_US.UTF-8
@@ -155,5 +166,6 @@ ENV LC_ALL en_US.UTF-8
 ENV PATH="/opt/mssql-tools/bin:${PATH}"
 
 ADD target/uberjar/agent-$VERSION-standalone.jar /agent/app.jar
+ADD rootfs/* /
 
 CMD ["java", "-jar", "/agent/app.jar"]
