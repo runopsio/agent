@@ -2,7 +2,8 @@
   (:require [cambium.core :as log]
             [mount.core :refer [defstate]]
             [buddy.core.codecs.base64 :as b64]
-            [protojure.grpc.client.providers.http2 :as grpc.http2])
+            [protojure.grpc.client.providers.http2 :as grpc.http2]
+            [backoff.time :as backoff])
   (:import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient))
 
 (def tags (System/getenv "TAGS"))
@@ -67,9 +68,26 @@
 
 (defn connect-grpc [data]
   (log/info "Trying to connect to gRPC server...")
-  (add-delay data)
   (disconnect-grpc)
+  (add-delay data)
   (start-grpc))
+
+(def grpc-webhhok-conn-atom (atom nil))
+
+(defn grpc-webhhok-conn
+  "Run until it finds a gRPC connection.
+   It will backoff for 5s on new attempts"
+  ([] (grpc-webhhok-conn 1))
+  ([attempt]
+   (let [conn (if (nil? @grpc-webhhok-conn-atom)
+                (reset! grpc-webhhok-conn-atom (connect))
+                @grpc-webhhok-conn-atom)]
+     (if (true? (not (.isClosed (:session (.context conn))))) conn
+         (do
+           (log/warn {:attempt attempt} "Couldn't find a webhook gRPC client alive, (re)connecting.")
+           (reset! grpc-webhhok-conn-atom nil)
+           (Thread/sleep (backoff/min->ms 5))
+           (grpc-webhhok-conn (inc attempt)))))))
 
 ; aws secret manager client
 (declare aws-client-start aws-client-stop)

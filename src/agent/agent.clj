@@ -270,17 +270,16 @@ fi")
 
 (def webhook-call-lock (Object.))
 
-(defn webhook-grpc-call [client data]
+(defn webhook-grpc-call [attempt client data]
   (try
     [(locking webhook-call-lock
        (deref (grpc-client/Webhook client data) (backoff/sec->ms 15) nil)) nil]
     (catch Exception e
-      ;; try to reconnect on errors and wait a few seconds
-      ;; always lock to prevent other threads from reusing it
-      ;; when a reconnecting is in place
+      ;; when finding errors, try to backoff for a few seconds.
+      ;; always lock to prevent other threads from reusing it.
+      (log/warn {:attempt (format "%s/5" attempt)} (format "%s" e))
       (locking webhook-call-lock
-        (clients/connect-grpc {})
-        (Thread/sleep 2000))
+        (Thread/sleep 1500))
       [nil e])))
 
 (defmulti webhook (fn [task] (:mode task)))
@@ -289,7 +288,9 @@ fi")
   (try
     (let [[res err] (loop [attempts 5 grpc-response nil err nil]
                       (if (or (not (empty? grpc-response)) (= attempts 0)) [grpc-response err]
-                          (let [[res err] (webhook-grpc-call (clients/grpc-client) (dissoc task :mode))]
+                          (let [[res err] (webhook-grpc-call (- 6 attempts)
+                                                             (clients/grpc-webhhok-conn)
+                                                             (dissoc task :mode))]
                             (recur (dec attempts) res err))))
           _ (when (some? err) (throw err))]
       (log/info {:task-id (:id task) :webhook-timeout (empty? res)} "End of webhook call via gRPC."))
@@ -386,7 +387,7 @@ fi")
           :stdin-input (some #(= (keyword (:type task)) %) [:bash :python
                                                             :postgres :postgres-csv
                                                             :mysql :mysql-csv])
-            :command (or (when-not (clojure.string/blank? (:custom-command task))
+          :command (or (when-not (clojure.string/blank? (:custom-command task))
                          sh-custom-command) (:command task))) nil])
 
 (defmulti lock-task (fn [task] (:mode task)))
