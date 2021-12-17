@@ -86,7 +86,7 @@
          (do
            (log/warn {:attempt attempt} "Couldn't find a webhook gRPC client alive, (re)connecting.")
            (reset! grpc-webhhok-conn-atom nil)
-           (Thread/sleep (backoff/min->ms 5))
+           (Thread/sleep (backoff/sec->ms 5))
            (grpc-webhhok-conn (inc attempt)))))))
 
 ; aws secret manager client
