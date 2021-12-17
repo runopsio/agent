@@ -75,18 +75,23 @@
   (loop []
     (if (clients/grpc-client-alive?)
       (let [out-chan (subscription-channel)
-            timeout-chan (async/timeout channel-timeout-ms)
+            ;; the timeout must only triggers if the connection is stuck,
+            ;; in normal situations, this must always be greater
+            ;; than the idle timeout of the gRPC load balancer.
+            timeout-chan (async/timeout (backoff/min->ms 6))
             [msg chan] (async/alts!! [out-chan timeout-chan])]
         (if (= timeout-chan chan)
           (do (log/info {:queue (queue-length)}
                         (format "reached channel timeout [%sm], restarting gRPC connection"
                                 (backoff/ms->min channel-timeout-ms)))
+              ;; always disconnect first, otherwise it will not
+              ;; unsubscribe properly from the server, returning
+              ;; an error informing it's already subscribed.
               (clients/disconnect-grpc)
               (grpc-connect-subscribe {:delay backoff-subscribe-ms}))
           (if msg
             (process-message (assoc msg :well-known-jwks well-known-jwks))
             (do (log/warn {:queue (queue-length)} "gRPC server has closed the subscription channel...")
-                (clients/disconnect-grpc)
                 (grpc-connect-subscribe {:delay backoff-subscribe-ms})))))
       (grpc-connect-subscribe {:delay backoff-subscribe-ms}))
     (recur)))
