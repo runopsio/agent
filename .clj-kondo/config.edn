@@ -1,7 +1,6 @@
 ;; {}
 
-{:lint-as {mount.core/defstate clojure.core/def
-           cambium.core/deflevel clojure.core/def}
+{:lint-as {mount.core/defstate clojure.core/def}
  :linters {:unresolved-namespace {:report-duplicates true
                                   :exclude [clojure.string
                                             clojure.walk]}

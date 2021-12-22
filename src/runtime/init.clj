@@ -1,11 +1,11 @@
 (ns runtime.init
-  (:require [agent.clients :as clients]
+  (:require [logger.timbre :as log]
+            [agent.clients :as clients]
             [io.grpc.Agent.client :as agent-client]
-            [cambium.core :as log]
             [backoff.time :as backoff]
             [clojure.data.json :as json]
             [clj-http.client :as client]
-            [sentry.logger :refer [sentry-logger]]
+            [logger.sentry :refer [sentry-logger]]
             [clojure.walk :refer [keywordize-keys]]
             [runtime.data :refer [runtime-data jwk-url]]))
 

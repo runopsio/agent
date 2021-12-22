@@ -1,6 +1,6 @@
 (ns agent.secrets
-  (:require [cambium.core :as log]
-            [sentry.logger :refer [sentry-task-logger sentry-logger]]
+  (:require [logger.timbre :as log]
+            [logger.sentry :refer [sentry-task-logger sentry-logger]]
             [clojure.data.json :as json]
             [clj-http.client :as client]
             [agent.clients :as clients]
