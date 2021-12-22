@@ -1,6 +1,6 @@
 (ns agent.agent
-  (:require [cambium.core :as log]
-            [sentry.logger :refer [sentry-task-logger]]
+  (:require [logger.timbre :as log]
+            [logger.sentry :refer [sentry-task-logger]]
             [agent.errors :as err]
             [clojure.java.shell :as shell]
             [clojure.java.io :refer [delete-file]]

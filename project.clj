@@ -4,33 +4,37 @@
   :license {:name "EPL-2.0 OR GPL-2.0-or-later WITH Classpath-exception-2.0"
             :url "https://www.eclipse.org/legal/epl-2.0/"}
   :dependencies [[org.clojure/clojure "1.10.3"]
-                 [org.clojure/core.async "1.3.610"]
+                 [org.clojure/core.async "1.5.644"]
                  [org.clojure/data.json "1.0.0"]
                  [buddy/buddy-core "1.10.1"]
                  [buddy/buddy-sign "3.4.1"]
 
                  ; gRPC
-                 [protojure "1.5.14"]
+                 [protojure "1.6.4"]
                  [protojure/google.protobuf "0.9.1"]
-                 [com.google.protobuf/protobuf-java "3.15.6"]
-                 [org.eclipse.jetty.http2/http2-client "9.4.38.v20210224"]
-                 [org.eclipse.jetty/jetty-alpn-java-client "9.4.38.v20210224"]
-                 [org.ow2.asm/asm "8.0.1"]
+
+                 ;; -- PROTOC_GEN_CLOJURE CLIENT DEPS --
+                 [org.eclipse.jetty.http2/http2-client "11.0.7"]
+                 [org.eclipse.jetty/jetty-alpn-java-client "11.0.7"]
+                 [org.eclipse.jetty/jetty-client "11.0.7"]
+
+                 ;; -- Jetty Client Dep --
+                 [org.ow2.asm/asm "9.1"]
 
                  ; monitoring
-                 [io.sentry/sentry-clj "5.2.158"]
+                 [io.sentry/sentry-clj "5.5.164"]
                  [io.honeycomb/honeycomb-opentelemetry-sdk "0.4.0"]
 
-                 ; logging
-                 [cambium/cambium.core "1.1.0"]
-                 [cambium/cambium.codec-cheshire "1.0.0"]
-                 [cambium/cambium.logback.json "0.4.4"]
+                 ;; logging
+                 [com.taoensso/timbre "5.1.2"]
+                 [com.fzakaria/slf4j-timbre "0.3.21"]
+                 ;; required because of https://github.com/fzakaria/slf4j-timbre/issues/45
+                 [org.slf4j/slf4j-api "1.7.30"]
 
                  ; aws
                  [com.cognitect.aws/api "0.8.524"]
                  [com.cognitect.aws/endpoints "1.1.12.69"]
                  [com.cognitect.aws/ecs "813.2.972.0"]
-
                  [clj-kondo "2021.08.06"]
                  [mount "0.1.16"]
                  [clj-http "3.12.3"]

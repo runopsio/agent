@@ -1,5 +1,5 @@
 (ns tracer.honeycomb
-  (:require [cambium.core :as log]
+  (:require [logger.timbre :as log]
             [mount.core :refer [defstate] :as mount]
             [version.version :refer [app-version git-revision]]
             [agent.errors :as err])

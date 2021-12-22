@@ -1,6 +1,6 @@
 (ns agent.http-poller
-  (:require [cambium.core :as log]
-            [sentry.logger :refer [sentry-logger]]
+  (:require [logger.timbre :as log]
+            [logger.sentry :refer [sentry-logger]]
             [clj-http.client :as client]
             [agent.clients :as clients]
             [agent.agent :as agent]

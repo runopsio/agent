@@ -1,5 +1,5 @@
 (ns agent.clients
-  (:require [cambium.core :as log]
+  (:require [logger.timbre :as log]
             [mount.core :refer [defstate]]
             [buddy.core.codecs.base64 :as b64]
             [protojure.grpc.client.providers.http2 :as grpc.http2]

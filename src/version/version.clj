@@ -1,6 +1,6 @@
 (ns version.version
-  (:require [clojure.java.io :as io]
-            [cambium.core :as log])
+  (:require [logger.timbre :as log]
+            [clojure.java.io :as io])
   (:import (java.util Properties)))
 
 (defn read-pom-property [property]

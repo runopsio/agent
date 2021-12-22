@@ -1,9 +1,9 @@
-(ns sentry.logger
-  (:require [sentry-clj.core :as sentry]
+(ns logger.sentry
+  (:require [logger.timbre :as log]
+            [sentry-clj.core :as sentry]
             [version.version :refer [app-version]]
             [runtime.data :refer [runtime-data]]
-            [mount.core :refer [defstate] :as mount]
-            [cambium.core :as log]))
+            [mount.core :refer [defstate] :as mount]))
 
 (def sentry-dsn-noop "https://public:private@sentry.io/1")
 

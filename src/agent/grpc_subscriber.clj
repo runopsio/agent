@@ -1,12 +1,12 @@
 (ns agent.grpc-subscriber
-  (:require [clojure.core.async :as async]
+  (:require [logger.timbre :as log]
+            [logger.sentry :refer [sentry-task-logger]]
+            [clojure.core.async :as async]
             [agent.clients :as clients]
             [agent.agent :as agent]
             [io.grpc.Agent.client :as agent-client]
-            [cambium.core :as log]
             [backoff.time :as backoff]
-            [runtime.data :refer [runtime-data]]
-            [sentry.logger :refer [sentry-task-logger]]))
+            [runtime.data :refer [runtime-data]]))
 
 (def queue-info (atom #{}))
 
@@ -28,22 +28,24 @@
   (swap! grpc-channels assoc :subscription-channel chan))
 
 (defn process-message [task]
-  (try
-    (async/thread (queue-info-add (:id task))
-                  (log/info {:queue (queue-length) :queued-tasks @queue-info :task-id (:id task)}
-                            "starting running task async.")
-                  (agent/run-task (assoc task
-                                         :mode :grpc
-                                         :jwk-verify (:jwk-verify runtime-data)
-                                         :queue-lenght (queue-length)))
+  (async/thread
+    (try
+      (queue-info-add (:id task))
+      (log/info
+       {:queue (queue-length) :queued-tasks @queue-info :task-id (:id task)}
+       "starting running task async.")
+      (agent/run-task (assoc task
+                             :mode :grpc
+                             :jwk-verify (:jwk-verify runtime-data)
+                             :queue-lenght (queue-length)))
 
-                  (queue-info-remove (:id task))
-                  (log/info {:queue (queue-length) :queued-tasks @queue-info :task-id (:id task)}
-                            "finished running task async."))
-    (catch Exception e
       (queue-info-remove (:id task))
-      (log/error {:task-id (:id task) :queue (queue-length)} e "failed to run task.")
-      (sentry-task-logger e task "failed to process message"))))
+      (log/info {:queue (queue-length) :queued-tasks @queue-info :task-id (:id task)}
+                "finished running task async.")
+      (catch Exception e
+        (queue-info-remove (:id task))
+        (log/error {:task-id (:id task) :queue (queue-length)} e "failed to run task.")
+        (sentry-task-logger e task "failed to process message")))))
 
 (defn when-closed [future-to-watch callback]
   (future (callback
@@ -71,8 +73,9 @@
 (defn listen-subscription [well-known-jwks channel-timeout-ms backoff-subscribe-ms]
   (grpc-connect-subscribe {})
 
-  (log/info "starting gRPC listener...")
-  (loop []
+  (loop [n 1]
+    (log/info {:grpc-client-alive (clients/grpc-client-alive?)}
+              (format "[%s] gRPC subscription controller" n))
     (if (clients/grpc-client-alive?)
       (let [out-chan (subscription-channel)
             ;; the timeout must only triggers if the connection is stuck,
@@ -94,4 +97,4 @@
             (do (log/warn {:queue (queue-length)} "gRPC server has closed the subscription channel...")
                 (grpc-connect-subscribe {:delay backoff-subscribe-ms})))))
       (grpc-connect-subscribe {:delay backoff-subscribe-ms}))
-    (recur)))
+    (recur (inc n))))
