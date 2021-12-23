@@ -38,7 +38,7 @@
                  [clj-kondo "2021.08.06"]
                  [mount "0.1.16"]
                  [clj-http "3.12.3"]
-                 [software.amazon.awssdk/secretsmanager "2.16.69"]
+                 [software.amazon.awssdk/secretsmanager "2.17.102"]
                  [camel-snake-kebab "0.4.2"]
                  [de.ubercode.clostache/clostache "1.4.0"]
                  [buddy "2.0.0"]]

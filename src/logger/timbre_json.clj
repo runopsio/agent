@@ -1,7 +1,10 @@
 (ns logger.timbre-json
   (:require [cheshire.core :as json]
-            [taoensso.timbre :as timbre]
             [version.version :refer [app-version]]))
+
+(defn get-stacktrace [err]
+  (try (map str (.getStackTrace err))
+       (catch Exception _ nil)))
 
 (defn output-fn [data]
   (let [{:keys [level ?err #_vargs msg_ ?ns-str ?file
@@ -18,5 +21,5 @@
                             (when (map? (:context data))
                               {:context (:context data)})
                             {:msg (force msg_)})
-                      ?err (assoc :err (timbre/stacktrace ?err {:stacktrace-fonts {}})))]
+                      ?err (assoc :err (get-stacktrace ?err)))]
     (json/generate-string output-data)))
