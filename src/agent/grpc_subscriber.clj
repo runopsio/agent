@@ -8,6 +8,8 @@
             [backoff.time :as backoff]
             [runtime.data :refer [runtime-data]]))
 
+(def boot-atom (atom nil))
+
 (def queue-info (atom #{}))
 
 (defn queue-length []
@@ -28,24 +30,25 @@
   (swap! grpc-channels assoc :subscription-channel chan))
 
 (defn process-message [task]
-  (async/thread
-    (try
-      (queue-info-add (:id task))
-      (log/info
-       {:queue (queue-length) :queued-tasks @queue-info :task-id (:id task)}
-       "starting running task async.")
-      (agent/run-task (assoc task
-                             :mode :grpc
-                             :jwk-verify (:jwk-verify runtime-data)
-                             :queue-lenght (queue-length)))
+  (if (:keep-alive-task task)
+    (log/info "gRPC noop - received keep alive command from server")
+    (async/thread
+      (try
+        (queue-info-add (:id task))
+        (log/info {:queue (queue-length) :queued-tasks @queue-info :task-id (:id task)}
+                  "starting running task async.")
+        (agent/run-task (assoc task
+                               :mode :grpc
+                               :jwk-verify (:jwk-verify runtime-data)
+                               :queue-lenght (queue-length)))
 
-      (queue-info-remove (:id task))
-      (log/info {:queue (queue-length) :queued-tasks @queue-info :task-id (:id task)}
-                "finished running task async.")
-      (catch Exception e
         (queue-info-remove (:id task))
-        (log/error {:task-id (:id task) :queue (queue-length)} e "failed to run task.")
-        (sentry-task-logger e task "failed to process message")))))
+        (log/info {:queue (queue-length) :queued-tasks @queue-info :task-id (:id task)}
+                  "finished running task async.")
+        (catch Exception e
+          (queue-info-remove (:id task))
+          (log/error {:task-id (:id task) :queue (queue-length)} e "failed to run task.")
+          (sentry-task-logger e task "failed to process message"))))))
 
 (defn when-closed [future-to-watch callback]
   (future (callback
@@ -58,20 +61,32 @@
 
 (defn subscribe []
   (subscription-channel! (async/chan 1))
-  (let [subscription-promise (agent-client/Subscribe (clients/grpc-client) {:tags clients/tags} (subscription-channel))]
+  (let [proto-body {:tags clients/tags
+                    :feature-keep-alive true
+                    :version (:app-version runtime-data)
+                    :revision (:git-revision runtime-data)
+                    :machine-id (:machine-id runtime-data)
+                    :hostname (:hostname runtime-data)
+                    :boot @boot-atom}
+        subscription-promise (agent-client/Subscribe (clients/grpc-client) proto-body (subscription-channel))]
     (when-closed subscription-promise #(when % (log/warn {:queue (queue-length)} (format "subscription finished: %s" %))))))
 
 (defn grpc-connect-subscribe [data]
   (if (clients/grpc-client-alive?)
     (do (log/info {:queue (queue-length)} "gRPC subscribing new channel...")
-        (subscribe))
+        (subscribe)
+        ;; backoff if the grpc connection is alive, it will prevent exhausting resources when
+        ;; the connection is alive and the server or load balancer are returning errors
+        (Thread/sleep 5000))
     (do (log/info {:queue (queue-length)} "gRPC client disconnected, creating new connection...")
         (clients/connect-grpc data)
         (when (clients/grpc-client-alive?)
           (subscribe)))))
 
 (defn listen-subscription [well-known-jwks channel-timeout-ms backoff-subscribe-ms]
+  (reset! boot-atom true)
   (grpc-connect-subscribe {})
+  (reset! boot-atom false)
 
   (loop [n 1]
     (log/info {:grpc-client-alive (clients/grpc-client-alive?)}

@@ -3,6 +3,12 @@ package io.grpc;
 
 message SubscriberRequest {
   string tags = 1;
+  string version = 2;
+  string revision = 3;
+  string hostname = 4;
+  string machine_id = 5;
+  bool boot = 6;
+  bool feature_keep_alive = 7;
 }
 
 message EventRequest {
@@ -37,6 +43,7 @@ message TaskResponse {
   string x_b3_parent_span_id = 9;
   string custom_command = 10;
   string token = 11;
+  bool keep_alive_task = 12;
 }
 
 message LogsRequest {

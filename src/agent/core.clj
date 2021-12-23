@@ -23,7 +23,7 @@
 (handle-uncaught-jvm-exceptions!)
 
 (defn -main [& _]
-  (log/info {:git-revision git-revision} "Starting agent")
+  (log/info {:git-revision git-revision :tags tags} "Starting agent")
   (let [runtime-config (init/fetch-agent-config)
         _ (-> (mount/with-args runtime-config) mount/start)
         well-known-jwks (init/fetch-jwks-pubkeys)
