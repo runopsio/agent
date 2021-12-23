@@ -174,17 +174,29 @@
 ;-----------------------------------------------------------------------------
 ; SubscriberRequest
 ;-----------------------------------------------------------------------------
-(defrecord SubscriberRequest-record [tags]
+(defrecord SubscriberRequest-record [tags version revision hostname machine-id boot feature-keep-alive]
   pb/Writer
   (serialize [this os]
-    (serdes.core/write-String 1  {:optimize true} (:tags this) os))
+    (serdes.core/write-String 1  {:optimize true} (:tags this) os)
+    (serdes.core/write-String 2  {:optimize true} (:version this) os)
+    (serdes.core/write-String 3  {:optimize true} (:revision this) os)
+    (serdes.core/write-String 4  {:optimize true} (:hostname this) os)
+    (serdes.core/write-String 5  {:optimize true} (:machine-id this) os)
+    (serdes.core/write-Bool 6  {:optimize true} (:boot this) os)
+    (serdes.core/write-Bool 7  {:optimize true} (:feature-keep-alive this) os))
   pb/TypeReflection
   (gettype [this]
     "io.grpc.SubscriberRequest"))
 
 (s/def :io.grpc.SubscriberRequest/tags string?)
-(s/def ::SubscriberRequest-spec (s/keys :opt-un [:io.grpc.SubscriberRequest/tags ]))
-(def SubscriberRequest-defaults {:tags "" })
+(s/def :io.grpc.SubscriberRequest/version string?)
+(s/def :io.grpc.SubscriberRequest/revision string?)
+(s/def :io.grpc.SubscriberRequest/hostname string?)
+(s/def :io.grpc.SubscriberRequest/machine-id string?)
+(s/def :io.grpc.SubscriberRequest/boot boolean?)
+(s/def :io.grpc.SubscriberRequest/feature-keep-alive boolean?)
+(s/def ::SubscriberRequest-spec (s/keys :opt-un [:io.grpc.SubscriberRequest/tags :io.grpc.SubscriberRequest/version :io.grpc.SubscriberRequest/revision :io.grpc.SubscriberRequest/hostname :io.grpc.SubscriberRequest/machine-id :io.grpc.SubscriberRequest/boot :io.grpc.SubscriberRequest/feature-keep-alive ]))
+(def SubscriberRequest-defaults {:tags "" :version "" :revision "" :hostname "" :machine-id "" :boot false :feature-keep-alive false })
 
 (defn cis->SubscriberRequest
   "CodedInputStream to SubscriberRequest"
@@ -193,6 +205,12 @@
          (fn [tag index]
              (case index
                1 [:tags (serdes.core/cis->String is)]
+               2 [:version (serdes.core/cis->String is)]
+               3 [:revision (serdes.core/cis->String is)]
+               4 [:hostname (serdes.core/cis->String is)]
+               5 [:machine-id (serdes.core/cis->String is)]
+               6 [:boot (serdes.core/cis->Bool is)]
+               7 [:feature-keep-alive (serdes.core/cis->Bool is)]
 
                [index (serdes.core/cis->undefined tag is)]))
          is)
@@ -470,7 +488,7 @@
 ;-----------------------------------------------------------------------------
 ; TaskResponse
 ;-----------------------------------------------------------------------------
-(defrecord TaskResponse-record [token config custom-command x-b3-parent-span-id id secret-provider script secret-path type secret-mapping x-b3-trace-id]
+(defrecord TaskResponse-record [token config custom-command x-b3-parent-span-id id secret-provider script keep-alive-task secret-path type secret-mapping x-b3-trace-id]
   pb/Writer
   (serialize [this os]
     (serdes.core/write-String 11  {:optimize true} (:token this) os)
@@ -480,6 +498,7 @@
     (serdes.core/write-Int32 1  {:optimize true} (:id this) os)
     (serdes.core/write-String 4  {:optimize true} (:secret-provider this) os)
     (serdes.core/write-String 3  {:optimize true} (:script this) os)
+    (serdes.core/write-Bool 12  {:optimize true} (:keep-alive-task this) os)
     (serdes.core/write-String 5  {:optimize true} (:secret-path this) os)
     (serdes.core/write-String 2  {:optimize true} (:type this) os)
     (serdes.core/write-String 6  {:optimize true} (:secret-mapping this) os)
@@ -495,12 +514,13 @@
 (s/def :io.grpc.TaskResponse/id int?)
 (s/def :io.grpc.TaskResponse/secret-provider string?)
 (s/def :io.grpc.TaskResponse/script string?)
+(s/def :io.grpc.TaskResponse/keep-alive-task boolean?)
 (s/def :io.grpc.TaskResponse/secret-path string?)
 (s/def :io.grpc.TaskResponse/type string?)
 (s/def :io.grpc.TaskResponse/secret-mapping string?)
 (s/def :io.grpc.TaskResponse/x-b3-trace-id string?)
-(s/def ::TaskResponse-spec (s/keys :opt-un [:io.grpc.TaskResponse/token :io.grpc.TaskResponse/config :io.grpc.TaskResponse/custom-command :io.grpc.TaskResponse/x-b3-parent-span-id :io.grpc.TaskResponse/id :io.grpc.TaskResponse/secret-provider :io.grpc.TaskResponse/script :io.grpc.TaskResponse/secret-path :io.grpc.TaskResponse/type :io.grpc.TaskResponse/secret-mapping :io.grpc.TaskResponse/x-b3-trace-id ]))
-(def TaskResponse-defaults {:token "" :config "" :custom-command "" :x-b3-parent-span-id "" :id 0 :secret-provider "" :script "" :secret-path "" :type "" :secret-mapping "" :x-b3-trace-id "" })
+(s/def ::TaskResponse-spec (s/keys :opt-un [:io.grpc.TaskResponse/token :io.grpc.TaskResponse/config :io.grpc.TaskResponse/custom-command :io.grpc.TaskResponse/x-b3-parent-span-id :io.grpc.TaskResponse/id :io.grpc.TaskResponse/secret-provider :io.grpc.TaskResponse/script :io.grpc.TaskResponse/keep-alive-task :io.grpc.TaskResponse/secret-path :io.grpc.TaskResponse/type :io.grpc.TaskResponse/secret-mapping :io.grpc.TaskResponse/x-b3-trace-id ]))
+(def TaskResponse-defaults {:token "" :config "" :custom-command "" :x-b3-parent-span-id "" :id 0 :secret-provider "" :script "" :keep-alive-task false :secret-path "" :type "" :secret-mapping "" :x-b3-trace-id "" })
 
 (defn cis->TaskResponse
   "CodedInputStream to TaskResponse"
@@ -515,6 +535,7 @@
                1 [:id (serdes.core/cis->Int32 is)]
                4 [:secret-provider (serdes.core/cis->String is)]
                3 [:script (serdes.core/cis->String is)]
+               12 [:keep-alive-task (serdes.core/cis->Bool is)]
                5 [:secret-path (serdes.core/cis->String is)]
                2 [:type (serdes.core/cis->String is)]
                6 [:secret-mapping (serdes.core/cis->String is)]
