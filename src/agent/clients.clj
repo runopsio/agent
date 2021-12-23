@@ -101,11 +101,11 @@
     (when-not disable-aws-secret-manager
       (log/info "Initializing AWS Secret Manager ...")
       (SecretsManagerClient/create))
-    (catch Exception e
+    (catch Throwable e
       (log/warn (format "Could not start AWS client with error: %s" e)))))
 
 (defn aws-client-stop []
   (try
     (when-not disable-aws-secret-manager (.close aws-client))
-    (catch Exception e
+    (catch Throwable e
       (log/warn (format "Could not close AWS client with error: %s" e)))))

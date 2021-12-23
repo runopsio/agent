@@ -2,7 +2,8 @@
   (:require [agent.clients :as _]
             [version.version :refer [git-revision]]
             [logger.timbre :as log]
-            [taoensso.timbre :refer [merge-config! set-config!]]
+            [taoensso.timbre :refer [merge-config! set-config!
+                                     handle-uncaught-jvm-exceptions!]]
             [logger.timbre-json :as timbre-json]
             [taoensso.timbre.appenders.core :as appenders]
             [agent.http-poller :as http]
@@ -19,6 +20,7 @@
 
 ;; comment it for non-json logging
 (merge-config! {:output-fn timbre-json/output-fn})
+(handle-uncaught-jvm-exceptions!)
 
 (defn -main [& _]
   (log/info {:git-revision git-revision} "Starting agent")
