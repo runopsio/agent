@@ -3,23 +3,20 @@
             [version.version :refer [app-version]]))
 
 (defn get-stacktrace [err]
-  (try (map str (.getStackTrace err))
-       (catch Exception _ nil)))
+  (str (.toString err) "\n"
+       (clojure.string/join "\n" (.getStackTrace err))))
 
 (defn output-fn [data]
   (let [{:keys [level ?err #_vargs msg_ ?ns-str ?file
                 timestamp_ ?line]} data
         thread-name (.getName (Thread/currentThread))
-
-        output-data (cond->
-                     (merge {:timestamp (force timestamp_)
-                             :level level
-                             :thread thread-name
-                             :ns (or ?ns-str ?file)
-                             :line ?line
-                             :version app-version}
-                            (when (map? (:context data))
-                              {:context (:context data)})
-                            {:msg (force msg_)})
-                      ?err (assoc :err (get-stacktrace ?err)))]
+        output-data (apply array-map [:timestamp (force timestamp_)
+                                      :level (clojure.string/upper-case level)
+                                      :thread thread-name
+                                      :ns (or ?ns-str ?file)
+                                      :line ?line
+                                      :version app-version
+                                      :context (:context data)
+                                      :msg (force msg_)
+                                      :err (when ?err (get-stacktrace ?err))])]
     (json/generate-string output-data)))
