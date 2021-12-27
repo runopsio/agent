@@ -61,7 +61,7 @@
 
 (defn subscribe []
   (subscription-channel! (async/chan 1))
-  (let [proto-body {:tags clients/tags
+  (let [proto-body {:tags (:tags runtime-data)
                     :feature-keep-alive true
                     :version (:app-version runtime-data)
                     :revision (:git-revision runtime-data)
