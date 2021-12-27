@@ -273,7 +273,7 @@ fi")
 (defn webhook-grpc-call [attempt client data]
   (try
     [(locking webhook-call-lock
-       (deref (grpc-client/Webhook client data) (backoff/sec->ms 15) nil)) nil]
+       (deref (grpc-client/Webhook client data) (backoff/sec->ms 120) nil)) nil]
     (catch Exception e
       ;; when finding errors, try to backoff for a few seconds.
       ;; always lock to prevent other threads from reusing it.
