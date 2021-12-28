@@ -96,9 +96,9 @@
                        "-h" (:MYSQL_HOST (:secrets task))
                        "-D" (:MYSQL_DB (:secrets task))
                        "-u" (:MYSQL_USER (:secrets task))
-                       "-e" (:script task)
                        "-P" (str (or (:MYSQL_PORT (:secrets task)) "3306"))
-                       :env {"MYSQL_PWD" (:MYSQL_PASS (:secrets task))})))
+                       :env {"MYSQL_PWD" (:MYSQL_PASS (:secrets task))}
+                       :in (:script task))))
 
 (def sh-mysql-csv
   (fn [task] (let [outcome (sh-mysql task)]
@@ -273,7 +273,7 @@ fi")
 (defn webhook-grpc-call [attempt client data]
   (try
     [(locking webhook-call-lock
-       (deref (grpc-client/Webhook client data) (backoff/sec->ms 120) nil)) nil]
+       (deref (grpc-client/Webhook client data) (backoff/sec->ms 15) nil)) nil]
     (catch Exception e
       ;; when finding errors, try to backoff for a few seconds.
       ;; always lock to prevent other threads from reusing it.
