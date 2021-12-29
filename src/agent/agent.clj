@@ -6,7 +6,6 @@
             [clojure.java.io :refer [delete-file]]
             [agent.clients :as clients]
             [agent.secrets :as secrets]
-            [io.grpc.Agent.client :as grpc-client]
             [cognitect.aws.client.api :as aws]
             [cognitect.aws.credentials :as credentials]
             [clj-http.client :as http-client]
