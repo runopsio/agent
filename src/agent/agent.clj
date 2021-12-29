@@ -270,10 +270,15 @@ fi")
 
 (def webhook-call-lock (Object.))
 
-(defn webhook-grpc-call [attempt client data]
+(defn webhook-http-call [attempt data]
   (try
     [(locking webhook-call-lock
-       (deref (grpc-client/Webhook client data) (backoff/sec->ms 120) nil)) nil]
+       (http-client/post (format "%s/v1/webhooks" clients/api-url)
+                         {:headers {"Content-Type" "application/json"
+                                    "Authorization" (str "Bearer " clients/token)}
+                          :body (json/write-str data)
+                          :socket-timeout (backoff/min->ms 2)
+                          :connection-timeout (backoff/min->ms 2)})) nil]
     (catch Exception e
       ;; when finding errors, try to backoff for a few seconds.
       ;; always lock to prevent other threads from reusing it.
@@ -282,42 +287,28 @@ fi")
         (Thread/sleep 1500))
       [nil e])))
 
-(defmulti webhook (fn [task] (:mode task)))
-(defmethod webhook :grpc [task]
-  (log/info (format "Starting task webhook via gRPC for task id [%s] with status [%s]" (:id task) (:status task)))
+(defn webhook [task]
+  (log/info {:status (:status task) :task-id (:id task)} "Starting sending webhook")
   (try
     (let [[res err] (loop [attempts 5 grpc-response nil err nil]
                       (if (or (not (empty? grpc-response)) (= attempts 0)) [grpc-response err]
-                          (let [[res err] (webhook-grpc-call (- 6 attempts)
-                                                             (clients/grpc-webhhok-conn)
-                                                             (dissoc task :mode))]
+                          (let [[res err] (webhook-http-call (- 6 attempts) (dissoc task :mode))]
                             (recur (dec attempts) res err))))
           _ (when (some? err) (throw err))]
-      (log/info {:task-id (:id task) :webhook-timeout (empty? res)} "End of webhook call via gRPC."))
+      (log/info {:task-id (:id task)
+                 :request-time (:request-time res)
+                 :status (:status res)} "End of webhook call"))
     [nil task]
     (catch Exception e
       (log/error e (format "Failed to run webhook for task id [%s]" (:id task)))
       (sentry-task-logger e task "failed to perform webhook")
       [nil "webhook failed"])))
 
-(defmethod webhook :poll [task]
-  (log/info (format "Starting task webhook for task id [%s] with status [%s]" (:id task) (:status task)))
-  (try
-    (http-client/post (format "%s/v1/webhooks" clients/api-url) {:headers {"Content-Type" "application/json"
-                                                                           "Authorization" (str "Bearer " clients/token)}
-                                                                 :body (json/write-str (dissoc task :mode))})
-    (log/info (format "End of task execution for id [%s]" (:id task)))
-    [nil task]
-    (catch Exception e
-      (log/error (format "Failed to perform webhook for task id [%s] with error: %s" (:id task) e))
-      (sentry-task-logger e task "failed to perform webhook")
-      [nil "webhook failed"])))
-
 (defn succeed-task-with-message [task message]
-  (webhook {:id (:id task) :status "success" :logs message :mode (:mode task)}))
+  (webhook {:id (:id task) :status "success" :logs message}))
 
 (defn fail-task-with-message [task message]
-  (webhook {:id (:id task) :status "failure" :logs message :mode (:mode task)}))
+  (webhook {:id (:id task) :status "failure" :logs message}))
 
 (declare run-task
          validate-user-token
