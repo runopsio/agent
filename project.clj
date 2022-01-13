@@ -6,6 +6,7 @@
   :dependencies [[org.clojure/clojure "1.10.3"]
                  [org.clojure/core.async "1.5.644"]
                  [org.clojure/data.json "1.0.0"]
+                 [buddy "2.0.0"]
                  [buddy/buddy-core "1.10.1"]
                  [buddy/buddy-sign "3.4.1"]
 
@@ -35,13 +36,16 @@
                  [com.cognitect.aws/api "0.8.524"]
                  [com.cognitect.aws/endpoints "1.1.12.69"]
                  [com.cognitect.aws/ecs "813.2.972.0"]
+
+                 ;; gcp
+                 [com.google.cloud/google-cloud-dlp "3.1.0"]
+
                  [clj-kondo "2021.08.06"]
                  [mount "0.1.16"]
                  [clj-http "3.12.3"]
                  [software.amazon.awssdk/secretsmanager "2.17.102"]
                  [camel-snake-kebab "0.4.2"]
-                 [de.ubercode.clostache/clostache "1.4.0"]
-                 [buddy "2.0.0"]]
+                 [de.ubercode.clostache/clostache "1.4.0"]]
   :plugins [[lein-bump-version "0.1.6"]]
   :source-paths ["src" "test"]
   :main ^:skip-aot agent.core

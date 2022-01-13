@@ -1,6 +1,7 @@
 (ns agent.http-poller
   (:require [logger.timbre :as log]
             [logger.sentry :refer [sentry-logger]]
+            [mount.core :as mount]
             [clj-http.client :as client]
             [agent.clients :as clients]
             [agent.agent :as agent]
@@ -12,7 +13,7 @@
   (conj {:runner_provider "runops" :status "ready"}
         (when clients/tags {:tags clients/tags})))
 
-(defn poll-tasks []
+(defn poll-tasks [dlp-fields]
   (try
     (let [response (client/get (format "%s/v2/tasks" clients/api-url)
                                {:headers {"Authorization" (str "Bearer " clients/token)
@@ -23,7 +24,9 @@
         (if (:jwk-verify runtime-data) nil
             (do
               (log/info (format "found %s task(s) to run" (count tasks)))
-              (doall (pmap #(agent/run-task (assoc % :mode :poll)) tasks))))))
+              (doall (pmap #(agent/run-task (assoc % :mode :poll
+                                                   :dlp-fields dlp-fields
+                                                   :org (get (mount/args) :org ""))) tasks))))))
     (catch java.io.EOFException e
       (log/error (format "failed to poll tasks with error: %s" e))
       (sentry-logger {:message "failed to poll tasks" :throwable e})
@@ -36,9 +39,9 @@
       (log/error (format "failed to poll tasks with error: %s" e))
       (sentry-logger {:message "failed to poll tasks" :throwable e}))))
 
-(defn poll [backoff-http-poll-ms]
+(defn poll [dlp-fields backoff-http-poll-ms]
   (log/info "Starting task poller...")
   (loop []
-    (poll-tasks)
+    (poll-tasks dlp-fields)
     (Thread/sleep backoff-http-poll-ms)
     (recur)))

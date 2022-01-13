@@ -12,6 +12,7 @@
             [clojure.data.json :as json]
             [crypto.sign :as crypto]
             [backoff.time :as backoff]
+            [dlp.gcp :as dlp]
             [clojure.walk :refer [keywordize-keys]]
             [clostache.parser :as parser]
             [tracer.honeycomb :refer [with-tracing
@@ -293,21 +294,23 @@ fi")
                       (if (or (not (empty? grpc-response)) (= attempts 0)) [grpc-response err]
                           (let [[res err] (webhook-http-call (- 6 attempts) (dissoc task :mode))]
                             (recur (dec attempts) res err))))
-          _ (when (some? err) (throw err))]
-      (log/info {:task-id (:id task)
-                 :request-time (:request-time res)
-                 :status (:status res)} "End of webhook call"))
-    [nil task]
+          _ (when (some? err) (throw err))
+          webhook-metrics {:agent.webhook_req_time (:request-time res)
+                           :agent.webhook_status_code (:status res)}]
+      (log/info (merge {:task-id (:id task)} webhook-metrics) "End of webhook call")
+      [nil (assoc task :tracing-context (merge (:tracing-context task) webhook-metrics))])
     (catch Exception e
       (log/error e (format "Failed to run webhook for task id [%s]" (:id task)))
       (sentry-task-logger e task "failed to perform webhook")
       [nil "webhook failed"])))
 
 (defn succeed-task-with-message [task message]
-  (webhook {:id (:id task) :status "success" :logs message}))
+  (webhook {:id (:id task) :status "success" :logs message
+            :tracing-context (:tracing-context task)}))
 
 (defn fail-task-with-message [task message]
-  (webhook {:id (:id task) :status "failure" :logs message}))
+  (webhook {:id (:id task) :status "failure" :logs message
+            :tracing-context (:tracing-context task)}))
 
 (declare run-task
          validate-user-token
@@ -320,7 +323,9 @@ fi")
          parse-custom-command
          render-script
          fetch-runtime-args
-         run-command)
+         run-command
+         redact-content
+         report-result)
 
 (defn run-task [task]
   (err/err->> task
@@ -328,14 +333,17 @@ fi")
               (with-tracing validate-queue [:run-agent-task :validate-queue])
               (with-tracing parse-command [:run-agent-task :parse-command])
               (with-tracing parse-custom-command [:run-agent-task :parse-custom-command]
-                {:custom-command (not (clojure.string/blank? (:custom-command task)))})
-              (with-tracing lock-task [:run-agent-task :lock-task])
+                {:agent.custom_command (not (clojure.string/blank? (:custom-command task)))})
+              (with-tracing lock-task [:run-agent-task :lock-task]
+                {:agent.lock_task (= (:mode task) :poll)})
               (with-tracing get-secrets [:run-agent-task :get-secrets])
               (with-tracing add-secrets-from-mapping [:run-agent-task :add-secrets-from-mapping])
               (with-tracing validate-secrets [:run-agent-task :validate-secrets])
               (with-tracing render-script [:run-agent-task :render-script])
               (with-tracing fetch-runtime-args [:run-agent-task :fetch-runtime-args])
               (with-tracing run-command [:run-agent-task (keyword (:type task))])
+              (with-tracing redact-content [:run-agent-task :redact-content])
+              (with-tracing report-result [:run-agent-task :report-result])
               (with-tracing-end)))
 
 (defn validate-queue [task]
@@ -517,16 +525,72 @@ fi")
     (log/info {:custom-command (= (:command task) sh-custom-command)
                :stdin-input (:stdin-input task)}
               (format "Start running command for task id: %s" (:id task)))
-    (let [outcome ((:command task) task)
-          outcome-msg (if-not (empty? (:out outcome)) (:out outcome) "")]
-      (if (= 0 (:exit outcome))
-        (succeed-task-with-message task outcome-msg)
-        (fail-task-with-message task (if-not (empty? (:err outcome)) (:err outcome) outcome-msg))))
+    (let [shell-result ((:command task) task)
+          shell-stdout (:out shell-result)
+          shell-stderr (:err shell-result)
+          shell-exit-code (:exit shell-result)
+          shell-stdout (if (nil? shell-stdout) "" shell-stdout)
+          shell-stderr (if (nil? shell-stderr) "" shell-stderr)]
+      [(assoc task
+              :shell-stdout shell-stdout
+              :shell-stderr shell-stderr
+              :shell-exit-code shell-exit-code) nil])
     (catch Exception e
       (log/error (format "shell command failed for task id %s with error: %s" (:id task) e))
       (sentry-task-logger e task "shell command failed")
       (fail-task-with-message task "agent failed to run command"))))
 
+(defn redact-content [task]
+  (try
+    (if (> (count (:shell-stdout task)) 1000000)
+      (do
+        (log/info "skipping redact, reached max size (1MB) for redacting task output")
+        [(assoc task
+                :shell-stdout (:shell-stdout task)
+                :redacted false) nil])
+      (let [chunk-list (dlp/bytes->chunks (:shell-stdout task))
+            total-chunks (count chunk-list)
+            info-types (:dlp-fields task)
+            _ (log/info (format "found %s chunks to proccess" total-chunks))
+            sorted-findings-list (dlp/process-chunks
+                                  (fn [chunk]
+                                    (into [] (sort #(compare (:start %1) (:start %2))
+                                                   (dlp/inspect-content chunk info-types))))
+                                  chunk-list)
+            redacted-chunks (pmap #(dlp/redact-by-findings %1 %2) chunk-list sorted-findings-list)
+            redacted-str (String. (byte-array (into [] cat redacted-chunks)))
+            findings-metrics (dlp/findings-metrics sorted-findings-list total-chunks)]
+        (log/info findings-metrics "redact shell output")
+        [(assoc task
+                :shell-stdout redacted-str
+                :findings-metrics findings-metrics
+                :redacted true) nil]))
+    (catch Throwable e
+      (log/warn e {:task-id (:id task)} "failed to redact output from shell command")
+      (sentry-task-logger e task "failed to redact output from shell command")
+      [(assoc task :redacted false) nil])))
+
+(defn report-result [task]
+  (when (= (System/getenv "DEBUG_OUTPUT") "true")
+    (log/info {:task-id (:id task)
+               :exit-code (:shell-exit-code task)
+               :redacted (:redacted task)}
+              (format "stdout:%s | stderr:%s" (:shell-stdout task) (:shell-stderr task))))
+  (let [exit-code (:shell-exit-code task)
+        stdout? (not (clojure.string/blank? (:shell-stdout task)))
+        stderr? (not (clojure.string/blank? (:shell-stderr task)))
+        redacted? (:redacted task)
+        task (assoc task :tracing-context
+                    (merge (:findings-metrics task)
+                           {:agent.org (:org task)
+                            :agent.exit_code exit-code
+                            :agent.stdout stdout?
+                            :agent.stderr stderr?
+                            :agent.redacted redacted?
+                            :agent.stdout_size (count (:shell-stdout task))}))]
+    (if (= (:shell-exit-code task) 0)
+      (succeed-task-with-message task (:shell-stdout task))
+      (fail-task-with-message task (:shell-stderr task)))))
 
 ;; secrets validations
 (defn k8s-validation [task]

@@ -92,8 +92,12 @@
          task-output (cond
                        (= (:status task-err) "failure") (:logs task-err)
                        (= (string? task-err) task-err)
-                       "")]
+                       "")
+         tracing-context (merge (:tracing-context (first fn-result))
+                                (:tracing-context task-err))]
      (set-span-attribute parent-span "error" task-output)
+     (when (not (nil? tracing-context))
+       (set-span-attributes parent-span tracing-context))
      (when (some? task-err)
        ((with-tracing-end) task))
      (safe-end parent-span)
@@ -105,8 +109,9 @@
                         (.startSpan))
                     (merge map-attrs
                            {:task-id (:id task)
-                            :agent-version app-version
-                            :agent-revision git-revision}))
+                            :agent.task_id (:id task)
+                            :agent.version app-version
+                            :agent.revision git-revision}))
          fn-result (call-traced-fn traced-fn (assoc task :tracing-spans
                                                     {root-key root-span}))
          task-err (second fn-result)
@@ -116,8 +121,12 @@
          task-output (cond
                        (= (:status task-err) "failure") (:logs task-err)
                        (= (string? task-err) task-err)
-                       "")]
+                       "")
+         tracing-context (merge (:tracing-context (first fn-result))
+                                (:tracing-context task-err))]
      (set-span-attribute root-span "error" task-output)
+     (when (not (nil? tracing-context))
+       (set-span-attributes root-span tracing-context))
      (when (some? task-err)
        ((with-tracing-end) task))
      fn-result)))
