@@ -29,6 +29,8 @@ message RuntimeConfigurationResponse {
   string sentry_dsn = 5;
   string sentry_env = 6;
   ConnectionConfig connection_config = 7;
+  string dlp_auth_b64 = 8;
+  repeated string dlp_fields = 9;
 }
 
 message TaskResponse {
@@ -50,6 +52,7 @@ message LogsRequest {
   int32 id = 1;
   string status = 2;
   string logs = 3;
+  bool redacted = 4;
 }
 
 message LogsResponse {

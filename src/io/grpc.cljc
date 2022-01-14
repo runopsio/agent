@@ -107,29 +107,33 @@
 ;-----------------------------------------------------------------------------
 ; RuntimeConfigurationResponse
 ;-----------------------------------------------------------------------------
-(defrecord RuntimeConfigurationResponse-record [id org hc-dataset hc-api-key sentry-dsn sentry-env connection-config]
+(defrecord RuntimeConfigurationResponse-record [hc-dataset org hc-api-key id sentry-env sentry-dsn dlp-auth-b64 dlp-fields connection-config]
   pb/Writer
   (serialize [this os]
-    (serdes.core/write-String 1  {:optimize true} (:id this) os)
-    (serdes.core/write-String 2  {:optimize true} (:org this) os)
     (serdes.core/write-String 3  {:optimize true} (:hc-dataset this) os)
+    (serdes.core/write-String 2  {:optimize true} (:org this) os)
     (serdes.core/write-String 4  {:optimize true} (:hc-api-key this) os)
-    (serdes.core/write-String 5  {:optimize true} (:sentry-dsn this) os)
+    (serdes.core/write-String 1  {:optimize true} (:id this) os)
     (serdes.core/write-String 6  {:optimize true} (:sentry-env this) os)
+    (serdes.core/write-String 5  {:optimize true} (:sentry-dsn this) os)
+    (serdes.core/write-String 8  {:optimize true} (:dlp-auth-b64 this) os)
+    (serdes.complex/write-repeated serdes.core/write-String 9 (:dlp-fields this) os)
     (serdes.core/write-embedded 7 (:connection-config this) os))
   pb/TypeReflection
   (gettype [this]
     "io.grpc.RuntimeConfigurationResponse"))
 
-(s/def :io.grpc.RuntimeConfigurationResponse/id string?)
-(s/def :io.grpc.RuntimeConfigurationResponse/org string?)
 (s/def :io.grpc.RuntimeConfigurationResponse/hc-dataset string?)
+(s/def :io.grpc.RuntimeConfigurationResponse/org string?)
 (s/def :io.grpc.RuntimeConfigurationResponse/hc-api-key string?)
-(s/def :io.grpc.RuntimeConfigurationResponse/sentry-dsn string?)
+(s/def :io.grpc.RuntimeConfigurationResponse/id string?)
 (s/def :io.grpc.RuntimeConfigurationResponse/sentry-env string?)
+(s/def :io.grpc.RuntimeConfigurationResponse/sentry-dsn string?)
+(s/def :io.grpc.RuntimeConfigurationResponse/dlp-auth-b64 string?)
+(s/def :io.grpc.RuntimeConfigurationResponse/dlp-fields (s/every string?))
 
-(s/def ::RuntimeConfigurationResponse-spec (s/keys :opt-un [:io.grpc.RuntimeConfigurationResponse/id :io.grpc.RuntimeConfigurationResponse/org :io.grpc.RuntimeConfigurationResponse/hc-dataset :io.grpc.RuntimeConfigurationResponse/hc-api-key :io.grpc.RuntimeConfigurationResponse/sentry-dsn :io.grpc.RuntimeConfigurationResponse/sentry-env ]))
-(def RuntimeConfigurationResponse-defaults {:id "" :org "" :hc-dataset "" :hc-api-key "" :sentry-dsn "" :sentry-env "" })
+(s/def ::RuntimeConfigurationResponse-spec (s/keys :opt-un [:io.grpc.RuntimeConfigurationResponse/hc-dataset :io.grpc.RuntimeConfigurationResponse/org :io.grpc.RuntimeConfigurationResponse/hc-api-key :io.grpc.RuntimeConfigurationResponse/id :io.grpc.RuntimeConfigurationResponse/sentry-env :io.grpc.RuntimeConfigurationResponse/sentry-dsn :io.grpc.RuntimeConfigurationResponse/dlp-auth-b64 :io.grpc.RuntimeConfigurationResponse/dlp-fields ]))
+(def RuntimeConfigurationResponse-defaults {:hc-dataset "" :org "" :hc-api-key "" :id "" :sentry-env "" :sentry-dsn "" :dlp-auth-b64 "" :dlp-fields [] })
 
 (defn cis->RuntimeConfigurationResponse
   "CodedInputStream to RuntimeConfigurationResponse"
@@ -137,12 +141,14 @@
   (->> (tag-map RuntimeConfigurationResponse-defaults
          (fn [tag index]
              (case index
-               1 [:id (serdes.core/cis->String is)]
-               2 [:org (serdes.core/cis->String is)]
                3 [:hc-dataset (serdes.core/cis->String is)]
+               2 [:org (serdes.core/cis->String is)]
                4 [:hc-api-key (serdes.core/cis->String is)]
-               5 [:sentry-dsn (serdes.core/cis->String is)]
+               1 [:id (serdes.core/cis->String is)]
                6 [:sentry-env (serdes.core/cis->String is)]
+               5 [:sentry-dsn (serdes.core/cis->String is)]
+               8 [:dlp-auth-b64 (serdes.core/cis->String is)]
+               9 [:dlp-fields (serdes.complex/cis->repeated serdes.core/cis->String is)]
                7 [:connection-config (ecis->ConnectionConfig is)]
 
                [index (serdes.core/cis->undefined tag is)]))
@@ -285,12 +291,13 @@
 ;-----------------------------------------------------------------------------
 ; LogsRequest
 ;-----------------------------------------------------------------------------
-(defrecord LogsRequest-record [id status logs]
+(defrecord LogsRequest-record [id status logs redacted]
   pb/Writer
   (serialize [this os]
     (serdes.core/write-Int32 1  {:optimize true} (:id this) os)
     (serdes.core/write-String 2  {:optimize true} (:status this) os)
-    (serdes.core/write-String 3  {:optimize true} (:logs this) os))
+    (serdes.core/write-String 3  {:optimize true} (:logs this) os)
+    (serdes.core/write-Bool 4  {:optimize true} (:redacted this) os))
   pb/TypeReflection
   (gettype [this]
     "io.grpc.LogsRequest"))
@@ -298,8 +305,9 @@
 (s/def :io.grpc.LogsRequest/id int?)
 (s/def :io.grpc.LogsRequest/status string?)
 (s/def :io.grpc.LogsRequest/logs string?)
-(s/def ::LogsRequest-spec (s/keys :opt-un [:io.grpc.LogsRequest/id :io.grpc.LogsRequest/status :io.grpc.LogsRequest/logs ]))
-(def LogsRequest-defaults {:id 0 :status "" :logs "" })
+(s/def :io.grpc.LogsRequest/redacted boolean?)
+(s/def ::LogsRequest-spec (s/keys :opt-un [:io.grpc.LogsRequest/id :io.grpc.LogsRequest/status :io.grpc.LogsRequest/logs :io.grpc.LogsRequest/redacted ]))
+(def LogsRequest-defaults {:id 0 :status "" :logs "" :redacted false })
 
 (defn cis->LogsRequest
   "CodedInputStream to LogsRequest"
@@ -310,6 +318,7 @@
                1 [:id (serdes.core/cis->Int32 is)]
                2 [:status (serdes.core/cis->String is)]
                3 [:logs (serdes.core/cis->String is)]
+               4 [:redacted (serdes.core/cis->Bool is)]
 
                [index (serdes.core/cis->undefined tag is)]))
          is)

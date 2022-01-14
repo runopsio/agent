@@ -1,6 +1,7 @@
 (ns agent.grpc-subscriber
   (:require [logger.timbre :as log]
             [logger.sentry :refer [sentry-task-logger]]
+            [mount.core :as mount]
             [clojure.core.async :as async]
             [agent.clients :as clients]
             [agent.agent :as agent]
@@ -83,7 +84,8 @@
         (when (clients/grpc-client-alive?)
           (subscribe)))))
 
-(defn listen-subscription [well-known-jwks channel-timeout-ms backoff-subscribe-ms]
+(defn listen-subscription
+  [{:keys [well-known-jwks dlp-fields channel-timeout-ms backoff-subscribe-ms]}]
   (reset! boot-atom true)
   (grpc-connect-subscribe {})
   (reset! boot-atom false)
@@ -108,7 +110,10 @@
               (clients/disconnect-grpc)
               (grpc-connect-subscribe {:delay backoff-subscribe-ms}))
           (if msg
-            (process-message (assoc msg :well-known-jwks well-known-jwks))
+            (process-message (assoc msg
+                                    :well-known-jwks well-known-jwks
+                                    :dlp-fields dlp-fields
+                                    :org (get (mount/args) :org "")))
             (do (log/warn {:queue (queue-length)} "gRPC server has closed the subscription channel...")
                 (grpc-connect-subscribe {:delay backoff-subscribe-ms})))))
       (grpc-connect-subscribe {:delay backoff-subscribe-ms}))
