@@ -534,20 +534,27 @@ fi")
       [(assoc task
               :shell-stdout shell-stdout
               :shell-stderr shell-stderr
-              :shell-exit-code shell-exit-code) nil])
+              :shell-exit-code shell-exit-code
+              :shell-stdout-size (count shell-stdout)) nil])
     (catch Exception e
       (log/error (format "shell command failed for task id %s with error: %s" (:id task) e))
       (sentry-task-logger e task "shell command failed")
       (fail-task-with-message task "agent failed to run command"))))
 
 (defn redact-content [task]
-  (try
-    (if (> (count (:shell-stdout task)) 1000000)
-      (do
-        (log/info "skipping redact, reached max size (1MB) for redacting task output")
+  (cond
+    (< (:shell-stdout-size task) 2)
+    (do (log/info "skipping redact, size to small to redact")
+        [(assoc task
+                :shell-stdout (:shell-stdout task)
+                :redacted true) nil])
+    (> (:shell-stdout-size task) 1000000)
+    (do (log/info "skipping redact, reached max size (1MB) for redacting task output")
         [(assoc task
                 :shell-stdout (:shell-stdout task)
                 :redacted false) nil])
+    :else
+    (try
       (let [chunk-list (dlp/bytes->chunks (:shell-stdout task))
             total-chunks (count chunk-list)
             info-types (:dlp-fields task)
@@ -564,11 +571,11 @@ fi")
         [(assoc task
                 :shell-stdout redacted-str
                 :findings-metrics findings-metrics
-                :redacted true) nil]))
-    (catch Throwable e
-      (log/warn e {:task-id (:id task)} "failed to redact output from shell command")
-      (sentry-task-logger e task "failed to redact output from shell command")
-      [(assoc task :redacted false) nil])))
+                :redacted true) nil])
+      (catch Throwable e
+        (log/warn e {:task-id (:id task)} "failed to redact output from shell command")
+        (sentry-task-logger e task "failed to redact output from shell command")
+        [(assoc task :redacted false) nil]))))
 
 (defn report-result [task]
   (when (= (System/getenv "DEBUG_OUTPUT") "true")
@@ -587,7 +594,7 @@ fi")
                             :agent.stdout stdout?
                             :agent.stderr stderr?
                             :agent.redacted redacted?
-                            :agent.stdout_size (count (:shell-stdout task))}))]
+                            :agent.stdout_size (:shell-stdout-size task)}))]
     (if (= (:shell-exit-code task) 0)
       (succeed-task-with-message task (:shell-stdout task))
       (fail-task-with-message task (:shell-stderr task)))))
