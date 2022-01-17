@@ -4,6 +4,7 @@ MAINTAINER RunOps first@runops.io
 ARG VERSION
 ARG NODE_VERSION=16.13.0
 ARG CLOJURE_VERSION=1.10.3.1040
+ARG ELIXIR_VERSION=1.13.0-1
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV ACCEPT_EULA=y
@@ -91,13 +92,16 @@ RUN echo "deb http://apt.postgresql.org/pub/repos/apt/ focal-pgdg main" | tee /e
     curl -sL https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - && \
     curl -sL https://www.mongodb.org/static/pgp/server-5.0.asc | apt-key add - && \
     curl -sL https://apt.releases.hashicorp.com/gpg | apt-key add - && \
-    curl -sL https://packages.microsoft.com/keys/microsoft.asc | apt-key add -
+    curl -sL https://packages.microsoft.com/keys/microsoft.asc | apt-key add - && \
+    curl -fsSLO https://packages.erlang-solutions.com/erlang-solutions_2.0_all.deb && \
+        dpkg -i erlang-solutions_2.0_all.deb
 
 RUN apt-get update -y && \
     apt-get install -y \
         mongodb-org-tools mongodb-org-shell libyaml-cpp0.6 \
         vault=1.5.9 libcap2-bin \
         openjdk-11-jre \
+        elixir=$ELIXIR_VERSION \
         default-mysql-client \
         postgresql-client-13 \
         mssql-tools unixodbc-dev && \
