@@ -3,11 +3,11 @@
             [dlp.gcp :as dlp]))
 
 (def input-text (str "My name is Gary Oldman and my email is gary.duck@example.com "
-                     "and my phone number is +5511959606814, my ip address is 200.20.10.100, "
+                     "and my phone number is +5511959656212, my ip address is 200.20.10.100, "
                      "my website is runops.io my cpf is 46251484136 my gender is male "
                      "and i have 25 years old my birthday is 04 of June!"))
 (def redacted-input (str "My name is Gary Oldman and my email is *****duck@example.com "
-                         "and my phone number is *****959606814, my ip address is *****0.10.100, "
+                         "and my phone number is *****959656212, my ip address is *****0.10.100, "
                          "my website is *****s.io my cpf is *****484136 my gender is ***** "
                          "and i have *****ars old my birthday is ***** June!"))
 
@@ -19,7 +19,7 @@
                      :end 60}
                     {:finding-id "2022-01-12T16:04:53.402174Z8072478956957853268"
                      :info-type "PHONE_NUMBER"
-                     :quote "+5511959606814"
+                     :quote "+5511959656212"
                      :likelihood "VERY_LIKELY"
                      :start 84
                      :end 98}
@@ -98,6 +98,12 @@
   (testing "must throw exception when the input is neither string or bytes"
     (is (thrown? Exception (dlp/redact-by-findings 123 findings-list))))
   (testing "must throw index out of bounds exception when the findings list is unsorted"
-    (is (thrown? IndexOutOfBoundsException
+    (is (thrown? clojure.lang.ExceptionInfo
                  (dlp/redact-by-findings input-text [{:start 30 :end 40}
-                                                     {:start 15 :end 20}])))))
+                                                     {:start 15 :end 20}]))))
+  (testing "should skip chunk when previous finding overlap the current"
+    (let [input-text "My phone+domain is +5511959656212+example.com, and my email is test@example.com!"
+          findings-list [{:start 19 :end 45} {:start 34 :end 45} {:start 63 :end 79}]
+          redacted-outcome "My phone+domain is *****959656212+example.com, and my email is *****example.com!"
+          res (dlp/redact-by-findings input-text findings-list)]
+      (is (= (String. res) redacted-outcome)))))

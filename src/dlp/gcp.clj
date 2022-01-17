@@ -143,6 +143,25 @@
          (recur (drop n chunks)
                 findings-results))))))
 
+(defn- redact-chunk [input-bytes previous-finding current-finding]
+  (try
+    (let [chunk-idx-start (if (= (:start previous-finding) (:start current-finding)) 0
+                              (:end previous-finding))
+          chunk-idx-end (:start current-finding)
+          chunk (subvec input-bytes chunk-idx-start chunk-idx-end)
+          ;; select the chunk to be replaced and concat with the character to mask it
+          chunk-to-replace (subvec input-bytes (:start current-finding) (:end current-finding))
+          chunk-to-replace-max (count chunk-to-replace)
+          chunk-to-replace (concat (.getBytes (clojure.string/join (repeat numbers-to-mask "*")))
+                                   (subvec chunk-to-replace
+                                           (min chunk-to-replace-max numbers-to-mask)
+                                           chunk-to-replace-max))]
+      [chunk chunk-to-replace])
+    (catch IndexOutOfBoundsException e
+      (throw (ex-info "Failed to redact chunk"
+                      {:previous-finding previous-finding
+                       :current-finding current-finding} e)))))
+
 (defn redact-by-findings
   "Redact content base on a vector of com.google.privacy.dlp.v2.Finding,
    the findings->map structure must be sorted increasingly by :start"
@@ -160,22 +179,11 @@
          (concat redact-result
                  (subvec input-bytes (get (last findings-list) :end 0) (count input-bytes))))
         (let [finding (first flist)
-              ;; select a chunk until the occurence of a finding
               previous-finding (nth findings-list (max 0 (- index 1)))
-              chunk-idx-start (if (= (:start previous-finding) (:start finding)) 0
-                                  (:end previous-finding))
-              chunk-idx-end (:start finding)
-              chunk (subvec input-bytes chunk-idx-start chunk-idx-end)
-              ;; select the chunk to be replaced and concat with the character to mask it
-              chunk-to-replace (subvec input-bytes (:start finding) (:end finding))
-              chunk-to-replace-max (count chunk-to-replace)
-              chunk-to-replace (concat (.getBytes (clojure.string/join (repeat numbers-to-mask "*")))
-                                       ;;  TODO: change to max instead of using if here!
-                                       (subvec chunk-to-replace
-                                               (if (< chunk-to-replace-max numbers-to-mask)
-                                                 chunk-to-replace-max
-                                                 numbers-to-mask)
-                                               chunk-to-replace-max))]
+              [chunk chunk-to-replace] (if (and (= (:end previous-finding) (:end finding))
+                                                (> index 0))
+                                         [[] []] ; avoid previous finding overlapping the current finding
+                                         (redact-chunk input-bytes previous-finding finding))]
           (recur (inc index)
                  (rest flist)
                  (into [] cat [redact-result chunk chunk-to-replace])))))))
