@@ -168,8 +168,9 @@
         _ (spit script-file (:script task))
         script-path (.getAbsolutePath script-file)
         output (shell/sh "gosu" "runops" "elixir" script-path
-                         :env {:PATH (System/getenv "PATH")
-                               :HOME (System/getenv "HOME")})]
+                         :env (assoc (clojure.walk/stringify-keys (:secrets task))
+                                     :PATH (System/getenv "PATH")
+                                     :HOME (System/getenv "HOME")))]
     (.delete script-file)
     output))
 
