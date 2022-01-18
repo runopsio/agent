@@ -162,6 +162,17 @@
                         :PATH (System/getenv "PATH")
                         :NODE_PATH "/usr/local/lib/node_modules/")))
 
+(defn sh-elixir [task]
+  (let [_ (shell/sh "gosu" "runops" "mix" "local.hex" "--if-missing" "--force")
+        script-file (File/createTempFile "task-" (str (:id task)))
+        _ (spit script-file (:script task))
+        script-path (.getAbsolutePath script-file)
+        output (shell/sh "gosu" "runops" "elixir" script-path
+                         :env {:PATH (System/getenv "PATH")
+                               :HOME (System/getenv "HOME")})]
+    (.delete script-file)
+    output))
+
 (def sh-rails
   (fn [task] (shell/sh "rails" (:script task))))
 
@@ -264,6 +275,7 @@ fi")
    :sql-server        sh-mssql
    :python            sh-python
    :rails             sh-rails
+   :elixir            sh-elixir
    :rails-console     sh-rails-console
    :rails-console-k8s sh-rails-console-k8s
    :rails-console-ecs sh-rails-console-ecs})
