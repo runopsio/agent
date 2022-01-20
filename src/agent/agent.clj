@@ -566,7 +566,7 @@ fi")
         [(assoc task
                 :shell-stdout (:shell-stdout task)
                 :redacted false) nil])
-    :else
+    (= (get task :redact "all") "all")
     (try
       (let [chunk-list (dlp/bytes->chunks (:shell-stdout task))
             total-chunks (count chunk-list)
@@ -588,7 +588,12 @@ fi")
       (catch Throwable e
         (log/warn e {:task-id (:id task)} "failed to redact output from shell command")
         (sentry-task-logger e task "failed to redact output from shell command")
-        [(assoc task :redacted false) nil]))))
+        [(assoc task :redacted false) nil]))
+    :else
+    (do (log/info {:task-id (:id task)} "redact disabled for this task.")
+        [(assoc task
+                :shell-stdout (:shell-stdout task)
+                :redacted true) nil])))
 
 (defn report-result [task]
   (when (= (System/getenv "DEBUG_OUTPUT") "true")
@@ -600,6 +605,8 @@ fi")
         stdout? (not (clojure.string/blank? (:shell-stdout task)))
         stderr? (not (clojure.string/blank? (:shell-stderr task)))
         redacted? (:redacted task)
+        redact (:redact task)
+        stdout-size (:shell-stdout-size task)
         task (assoc task :tracing-context
                     (merge (:findings-metrics task)
                            {:agent.org (:org task)
@@ -607,7 +614,8 @@ fi")
                             :agent.stdout stdout?
                             :agent.stderr stderr?
                             :agent.redacted redacted?
-                            :agent.stdout_size (:shell-stdout-size task)}))]
+                            :agent.redact redact
+                            :agent.stdout_size stdout-size}))]
     (if (= (:shell-exit-code task) 0)
       (succeed-task-with-message task (:shell-stdout task))
       (fail-task-with-message task (:shell-stderr task)))))

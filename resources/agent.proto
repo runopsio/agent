@@ -46,6 +46,7 @@ message TaskResponse {
   string custom_command = 10;
   string token = 11;
   bool keep_alive_task = 12;
+  string redact = 13;
 }
 
 message LogsRequest {
