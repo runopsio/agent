@@ -497,7 +497,7 @@
 ;-----------------------------------------------------------------------------
 ; TaskResponse
 ;-----------------------------------------------------------------------------
-(defrecord TaskResponse-record [token config custom-command x-b3-parent-span-id id secret-provider script keep-alive-task secret-path type secret-mapping x-b3-trace-id]
+(defrecord TaskResponse-record [token config custom-command x-b3-parent-span-id id secret-provider script keep-alive-task secret-path type secret-mapping redact x-b3-trace-id]
   pb/Writer
   (serialize [this os]
     (serdes.core/write-String 11  {:optimize true} (:token this) os)
@@ -511,6 +511,7 @@
     (serdes.core/write-String 5  {:optimize true} (:secret-path this) os)
     (serdes.core/write-String 2  {:optimize true} (:type this) os)
     (serdes.core/write-String 6  {:optimize true} (:secret-mapping this) os)
+    (serdes.core/write-String 13  {:optimize true} (:redact this) os)
     (serdes.core/write-String 8  {:optimize true} (:x-b3-trace-id this) os))
   pb/TypeReflection
   (gettype [this]
@@ -527,9 +528,10 @@
 (s/def :io.grpc.TaskResponse/secret-path string?)
 (s/def :io.grpc.TaskResponse/type string?)
 (s/def :io.grpc.TaskResponse/secret-mapping string?)
+(s/def :io.grpc.TaskResponse/redact string?)
 (s/def :io.grpc.TaskResponse/x-b3-trace-id string?)
-(s/def ::TaskResponse-spec (s/keys :opt-un [:io.grpc.TaskResponse/token :io.grpc.TaskResponse/config :io.grpc.TaskResponse/custom-command :io.grpc.TaskResponse/x-b3-parent-span-id :io.grpc.TaskResponse/id :io.grpc.TaskResponse/secret-provider :io.grpc.TaskResponse/script :io.grpc.TaskResponse/keep-alive-task :io.grpc.TaskResponse/secret-path :io.grpc.TaskResponse/type :io.grpc.TaskResponse/secret-mapping :io.grpc.TaskResponse/x-b3-trace-id ]))
-(def TaskResponse-defaults {:token "" :config "" :custom-command "" :x-b3-parent-span-id "" :id 0 :secret-provider "" :script "" :keep-alive-task false :secret-path "" :type "" :secret-mapping "" :x-b3-trace-id "" })
+(s/def ::TaskResponse-spec (s/keys :opt-un [:io.grpc.TaskResponse/token :io.grpc.TaskResponse/config :io.grpc.TaskResponse/custom-command :io.grpc.TaskResponse/x-b3-parent-span-id :io.grpc.TaskResponse/id :io.grpc.TaskResponse/secret-provider :io.grpc.TaskResponse/script :io.grpc.TaskResponse/keep-alive-task :io.grpc.TaskResponse/secret-path :io.grpc.TaskResponse/type :io.grpc.TaskResponse/secret-mapping :io.grpc.TaskResponse/redact :io.grpc.TaskResponse/x-b3-trace-id ]))
+(def TaskResponse-defaults {:token "" :config "" :custom-command "" :x-b3-parent-span-id "" :id 0 :secret-provider "" :script "" :keep-alive-task false :secret-path "" :type "" :secret-mapping "" :redact "" :x-b3-trace-id "" })
 
 (defn cis->TaskResponse
   "CodedInputStream to TaskResponse"
@@ -548,6 +550,7 @@
                5 [:secret-path (serdes.core/cis->String is)]
                2 [:type (serdes.core/cis->String is)]
                6 [:secret-mapping (serdes.core/cis->String is)]
+               13 [:redact (serdes.core/cis->String is)]
                8 [:x-b3-trace-id (serdes.core/cis->String is)]
 
                [index (serdes.core/cis->undefined tag is)]))
