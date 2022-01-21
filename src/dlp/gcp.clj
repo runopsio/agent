@@ -98,6 +98,12 @@
      :serialized-size (.getSerializedSize overview)
      :summary (into [] summary)}))
 
+(defn overview-metrics [overview-map-list]
+  {:agent.info-types (reduce + (map :info-types overview-map-list))
+   :agent.info-types-count (reduce + (map :info-types-count overview-map-list))
+   :agent.transformed-bytes (reduce + (map :transformed-bytes overview-map-list))
+   :agent.serialized-size (reduce + (map :serialized-size overview-map-list))})
+
 (defn bytes->chunks
   "break down bytes or string to a list of byte array chunks"
   ([bytes-or-str]

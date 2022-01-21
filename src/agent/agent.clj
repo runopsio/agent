@@ -576,13 +576,13 @@ fi")
                          #(dlp/deidentify-content (String. %) info-types)
                          chunk-list)
             redacted-str (clojure.string/join (map #(first %) result-list))
-            overview-list (map #(dlp/overview->map (second %)) result-list)
-            ;; findings-metrics (dlp/findings-metrics sorted-findings-list total-chunks)
-            ]
-        (log/info overview-list "redact shell output")
+            overview-metrics (-> (map #(dlp/overview->map (second %)) result-list)
+                                 dlp/overview-metrics)
+            overview-metrics (assoc overview-metrics :agent.total_chunks total-chunks)]
+        (log/info overview-metrics "redact shell output")
         [(assoc task
                 :shell-stdout redacted-str
-                ;; :findings-metrics findings-metrics
+                :overview-metrics overview-metrics
                 :redacted true) nil])
       (catch Throwable e
         (log/warn e {:task-id (:id task)} "failed to redact output from shell command")
@@ -607,7 +607,7 @@ fi")
         redact (:redact task)
         stdout-size (:shell-stdout-size task)
         task (assoc task :tracing-context
-                    (merge (:findings-metrics task)
+                    (merge (:overview-metrics task)
                            {:agent.org (:org task)
                             :agent.exit_code exit-code
                             :agent.stdout stdout?
