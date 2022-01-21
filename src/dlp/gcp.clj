@@ -210,7 +210,7 @@
                      chunk-list)
         content (clojure.string/join (map #(first %) result-list))
         overview-list (map #(overview->map (second %)) result-list)]
-    overview-list))
+    [content overview-list]))
 
 (comment
   ;; proccess ad-hoc deidentify-content full
@@ -220,4 +220,4 @@
                         "is 200.20.10.100, my website is runops.io my cpf is 46251484136 my gender is male and i have 25 years old "
                         "and my birthday is 04 of June!")
         [content overview] (deidentify-content text-input)]
-    (overview->map overview)))
+    [content (overview->map overview)]))
