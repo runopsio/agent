@@ -129,31 +129,37 @@ RUN npm install --global moment@2.29.1 \
     firebase-admin@10.0.0
 
 RUN pip3 install -U \
-    boto3==1.18.31 \
+    arrow==1.2.1 \
+    boto3==1.20.39 \
     appdirs==1.4.4 \
     CacheControl==0.12.6 \
     chardet==4.0.0 \
     colorama==0.4.4 \
     contextlib2==0.6.0 \
+    cryptography==36.0.1 \
     distlib==0.3.1 \
     distro==1.5.0 \
     html5lib==1.1 \
+    hvac==0.11.2 \
     kubernetes==20.13.0 \
     lockfile==0.12.2 \
     msgpack==1.0.2 \
     ordered-set==4.0.2 \
-    pandas==1.3.2 \
+    openpyxl==3.0.9 \
+    pandas==1.3.5 \
     paramiko==2.7.2 \
     packaging==20.9 \
     pep517==0.9.1 \
     progress==1.5 \
-    psycopg2-binary==2.9.1 \
+    psycopg2-binary==2.9.3 \
+    pymssql==2.2.3 \
     PyMySQL==1.0.2 \
     pyparsing==2.4.7 \
     pytoml==0.1.21 \
     pytz==2021.1 \
     PyYAML==6.0 \
-    requests==2.26.0 \
+    requests==2.27.1 \
+    slack-bolt==1.11.2 \
     SQLAlchemy==1.4.23 \
     retrying==1.3.3 \
     toml==0.10.2 \

@@ -5,19 +5,17 @@ To test the MSSQL integration
 ## Requirements
 
 - Install [sqlcmd](https://docs.microsoft.com/en-us/sql/linux/sql-server-linux-setup-tools?view=sql-server-ver15#macos) in your local system
-- `docker pull mcr.microsoft.com/mssql/server:2019-latest`
+- `docker pull mcr.microsoft.com/azure-sql-edge`
 
 # Quick Start
 
 1. Run a docker with mssql
 
 ```sh
-docker run \
-    -e "ACCEPT_EULA=Y" \
-    -e "SA_PASSWORD=1U7eSGn%Gk1" \
-    -p 1433:1433 \
-    --name sql1 \
-    -h sql1 mcr.microsoft.com/mssql/server:2019-latest
+docker run --rm -it \
+  -e "ACCEPT_EULA=Y" \
+  -e "SA_PASSWORD=1U7eSGn%Gk1" \
+  -p 1433:1433 mcr.microsoft.com/azure-sql-edge
 ```
 
 2. Populate the database
