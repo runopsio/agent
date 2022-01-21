@@ -5,18 +5,19 @@
   (:import com.google.cloud.dlp.v2.DlpServiceClient
            com.google.cloud.dlp.v2.DlpServiceSettings
            com.google.api.gax.core.FixedCredentialsProvider
-           com.google.privacy.dlp.v2.ByteContentItem
-           com.google.privacy.dlp.v2.ByteContentItem$BytesType
            com.google.privacy.dlp.v2.ContentItem
            com.google.privacy.dlp.v2.InfoType
            com.google.privacy.dlp.v2.InspectConfig
-           com.google.privacy.dlp.v2.InspectContentRequest
            com.google.privacy.dlp.v2.LocationName
            com.google.privacy.dlp.v2.Likelihood
-           com.google.protobuf.ByteString
+           com.google.privacy.dlp.v2.CharacterMaskConfig
+           com.google.privacy.dlp.v2.InfoTypeTransformations
+           com.google.privacy.dlp.v2.InfoTypeTransformations$InfoTypeTransformation
+           com.google.privacy.dlp.v2.DeidentifyConfig
+           com.google.privacy.dlp.v2.DeidentifyContentRequest
+           com.google.privacy.dlp.v2.PrimitiveTransformation
            com.google.auth.oauth2.GoogleCredentials))
 
-(def numbers-to-mask 5)
 (def max-info-types 35)
 ;; this values needs to be low to avoid the max limit of findings (3000) per chunk
 ;; thus we send chunks of 0.0625 Megabytes
@@ -71,25 +72,6 @@
   :start (parse-service-account (:dlp-auth-b64 (mount/args)))
   :stop nil)
 
-(defn- finding->map [^com.google.privacy.dlp.v2.Finding f]
-  {:finding-id (.getFindingId f)
-   :info-type (-> f (.getInfoType) (.getName))
-  ;;  :quote (.getQuote f)
-   :likelihood (.toString (.getLikelihood f))
-   :start (-> f (.getLocation) (.getByteRange) (.getStart))
-   :end (-> f (.getLocation) (.getByteRange) (.getEnd))})
-
-(defn findings-metrics
-  "Given a list of findings-list and count of total-chunks, return
-   a map containing metrics"
-  [findings-list total-chunks]
-  (let [total-findings (count (into [] cat findings-list))
-        findings-chunks (count findings-list)]
-    {:agent.dlp.total_findings total-findings
-     :agent.dlp.total_findings_chunks findings-chunks
-     :agent.dlp.total_chunks total-chunks
-     :agent.dlp.estimated_findings_per_chunk (int (/ total-findings (max findings-chunks 1)))}))
-
 (defn- build-info-types
   ([info-types]
    (let [arr (java.util.ArrayList.)
@@ -98,6 +80,29 @@
                                       (.build))) info-types))] arr
         arr))
   ([] (build-info-types default-info-types)))
+
+(defn overview->map
+  "Convert com.google.privacy.dlp.v2.TransformationOverview to a map.
+   See https://cloud.google.com/java/docs/reference/google-cloud-dlp/latest/com.google.privacy.dlp.v2.TransformationOverview?hl=en"
+  [^com.google.privacy.dlp.v2.TransformationOverview overview]
+  (let [summary (map #(hash-map
+                       :info-type (-> % .getInfoType .getName)
+                       :count (reduce +
+                                      (map (fn [^com.google.privacy.dlp.v2.TransformationSummary$SummaryResult r]
+                                             (.getCount r))
+                                           (.getResultsList %))))
+                     (.getTransformationSummariesList overview))]
+    {:info-types (.getTransformationSummariesCount overview)
+     :info-types-count (reduce + (map :count summary))
+     :transformed-bytes (.getTransformedBytes overview)
+     :serialized-size (.getSerializedSize overview)
+     :summary (into [] summary)}))
+
+(defn overview-metrics [overview-map-list]
+  {:agent.info-types (reduce + (map :info-types overview-map-list))
+   :agent.info-types-count (reduce + (map :info-types-count overview-map-list))
+   :agent.transformed-bytes (reduce + (map :transformed-bytes overview-map-list))
+   :agent.serialized-size (reduce + (map :serialized-size overview-map-list))})
 
 (defn bytes->chunks
   "break down bytes or string to a list of byte array chunks"
@@ -143,105 +148,76 @@
          (recur (drop n chunks)
                 findings-results))))))
 
-(defn- redact-chunk [input-bytes previous-finding current-finding]
-  (try
-    (let [chunk-idx-start (if (= (:start previous-finding) (:start current-finding)) 0
-                              (:end previous-finding))
-          chunk-idx-end (:start current-finding)
-          chunk (subvec input-bytes chunk-idx-start chunk-idx-end)
-          ;; select the chunk to be replaced and concat with the character to mask it
-          chunk-to-replace (subvec input-bytes (:start current-finding) (:end current-finding))
-          chunk-to-replace-max (count chunk-to-replace)
-          chunk-to-replace (concat (.getBytes (clojure.string/join (repeat numbers-to-mask "*")))
-                                   (subvec chunk-to-replace
-                                           (min chunk-to-replace-max numbers-to-mask)
-                                           chunk-to-replace-max))]
-      [chunk chunk-to-replace])
-    (catch IndexOutOfBoundsException e
-      (throw (ex-info "Failed to redact chunk"
-                      {:previous-finding previous-finding
-                       :current-finding current-finding} e)))))
-
-(defn redact-by-findings
-  "Redact content base on a vector of com.google.privacy.dlp.v2.Finding,
-   the findings->map structure must be sorted increasingly by :start"
-  [bytes-or-str findings-list]
-  (let [input-bytes
-        (cond
-          (string? bytes-or-str) (vec (.getBytes bytes-or-str))
-          (bytes? bytes-or-str) (vec bytes-or-str)
-          :else (throw (IllegalArgumentException. "wrong input type for bytes-or-str param")))]
-    (loop [index 0
-           flist findings-list
-           redact-result []]
-      (if (empty? flist)
-        (byte-array
-         (concat redact-result
-                 (subvec input-bytes (get (last findings-list) :end 0) (count input-bytes))))
-        (let [finding (first flist)
-              previous-finding (nth findings-list (max 0 (- index 1)))
-              [chunk chunk-to-replace] (if (and (= (:end previous-finding) (:end finding))
-                                                (> index 0))
-                                         [[] []] ; avoid previous finding overlapping the current finding
-                                         (redact-chunk input-bytes previous-finding finding))]
-          (recur (inc index)
-                 (rest flist)
-                 (into [] cat [redact-result chunk chunk-to-replace])))))))
-
-(defn inspect-content
-  "Inspect strings for sensitive data, returning a list of map
-   extracted from a com.google.privacy.dlp.v2.Finding object, by providing:
-   * text-input as string
-   * info-type as a vector of info types strings, if it's not set it will use default ones
-   inspired in this example: https://cloud.google.com/dlp/docs/inspecting-text"
+(defn deidentify-content
   ([text-input]
-   (inspect-content text-input default-info-types))
+   (deidentify-content text-input default-info-types))
   ([text-input info-types]
    (when (> (count info-types) max-info-types)
      (throw (IllegalArgumentException.
              (format "Max info-types per request reached %s/%s" (count info-types) max-info-types))))
-   (let [byte-item (-> (ByteContentItem/newBuilder)
-                       (.setType (ByteContentItem$BytesType/TEXT_UTF8))
-                       (.setData (ByteString/copyFromUtf8 (String. text-input)))
-                       (.build))
-         item (-> (ContentItem/newBuilder)
-                  (.setByteItem byte-item)
+   (let [item (-> (ContentItem/newBuilder)
+                  (.setValue text-input)
                   (.build))
-         config (-> (InspectConfig/newBuilder)
-                    (.addAllInfoTypes (build-info-types info-types))
-                    (.setMinLikelihood (Likelihood/POSSIBLE)) ; https://cloud.google.com/dlp/docs/likelihood
-                    (.setIncludeQuote true)
-                    (.build))
+         mask-config (-> (CharacterMaskConfig/newBuilder)
+                         (.setMaskingCharacter "*")
+                         (.setNumberToMask 5)
+                         .build)
+         transformation (-> (InfoTypeTransformations$InfoTypeTransformation/newBuilder)
+                            (.setPrimitiveTransformation
+                             (-> (PrimitiveTransformation/newBuilder)
+                                 (.setCharacterMaskConfig mask-config)
+                                 .build))
+                            .build)
+         deidentify-config (-> (DeidentifyConfig/newBuilder)
+                               (.setInfoTypeTransformations
+                                (-> (InfoTypeTransformations/newBuilder)
+                                    (.addTransformations transformation)))
+                               .build)
+         inspect-config (-> (InspectConfig/newBuilder)
+                            (.addAllInfoTypes (build-info-types info-types))
+                            (.setMinLikelihood (Likelihood/POSSIBLE)) ; https://cloud.google.com/dlp/docs/likelihood
+                            (.setIncludeQuote true)
+                            (.build))
          [project-id goog-cred] google-credentials
          _ (when (nil? goog-cred) (throw (IllegalStateException.
                                           "failed to obtain GCP credentials")))
-         req (-> (InspectContentRequest/newBuilder)
+         req (-> (DeidentifyContentRequest/newBuilder)
                  (.setParent (.toString (LocationName/of project-id "global")))
                  (.setItem item)
-                 (.setInspectConfig config)
+                 (.setDeidentifyConfig deidentify-config)
+                 (.setInspectConfig inspect-config)
                  (.build))
          client (DlpServiceClient/create
                  (-> (DlpServiceSettings/newBuilder)
                      (.setCredentialsProvider (FixedCredentialsProvider/create goog-cred))
                      (.build)))
-         content (-> client (.inspectContent req))
-         findings (-> content
-                      (.getResult)
-                      (.getFindingsList))
+         response (-> client (.deidentifyContent req))
+         redacted-content (-> response .getItem .getValue)
+         overview (-> response (.getOverview))
          _ (.close client)]
-     (into [] (doall (map finding->map findings))))))
+     [redacted-content overview])))
 
 (comment
-  (let [gcp-base64-service-account "<json-base64-service-account-credentials>"
+  ;; proccess ad-hoc deidentify-content in chunks
+  (let [gcp-base64-service-account ""
         _ (-> (mount/with-args {:dlp-auth-b64 gcp-base64-service-account}) mount/start)
-        text-input (str "My name is Gary Oldman and my email is gary.duck@example.com and my phone number is +5511959606814, my ip address "
+        text-input (str "My name is Gary Oldman and my email is gary.duck@example.com, fii@example.com and my phone number is +5511959606814, my ip address "
                         "is 200.20.10.100, my website is runops.io my cpf is 46251484136 my gender is male and i have 25 years old "
                         "and my birthday is 04 of June!")
-        chunk-list (bytes->chunks text-input)
-        sorted-findings-list (process-chunks
-                              (fn [chunk]
-                                (into [] (sort #(compare (:start %1) (:start %2))
-                                               (inspect-content chunk))))
-                              chunk-list)
-        result (pmap #(redact-by-findings %1 %2) chunk-list sorted-findings-list)]
-    (String. (byte-array (into [] cat result)))))
+        chunk-list (bytes->chunks text-input 85)
+        result-list (process-chunks
+                     #(deidentify-content (String. %))
+                     chunk-list)
+        content (clojure.string/join (map #(first %) result-list))
+        overview-list (map #(overview->map (second %)) result-list)]
+    [content overview-list]))
+
+(comment
+  ;; proccess ad-hoc deidentify-content full
+  (let [gcp-base64-service-account ""
+        _ (-> (mount/with-args {:dlp-auth-b64 gcp-base64-service-account}) mount/start)
+        text-input (str "My name is Gary Oldman and my email is gary.duck@example.com, foo@example.com and my phone number is +5511959606814, my ip address "
+                        "is 200.20.10.100, my website is runops.io my cpf is 46251484136 my gender is male and i have 25 years old "
+                        "and my birthday is 04 of June!")
+        [content overview] (deidentify-content text-input)]
+    [content (overview->map overview)]))

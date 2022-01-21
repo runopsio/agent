@@ -572,18 +572,17 @@ fi")
             total-chunks (count chunk-list)
             info-types (:dlp-fields task)
             _ (log/info (format "found %s chunks to proccess" total-chunks))
-            sorted-findings-list (dlp/process-chunks
-                                  (fn [chunk]
-                                    (into [] (sort #(compare (:start %1) (:start %2))
-                                                   (dlp/inspect-content chunk info-types))))
-                                  chunk-list)
-            redacted-chunks (pmap #(dlp/redact-by-findings %1 %2) chunk-list sorted-findings-list)
-            redacted-str (String. (byte-array (into [] cat redacted-chunks)))
-            findings-metrics (dlp/findings-metrics sorted-findings-list total-chunks)]
-        (log/info findings-metrics "redact shell output")
+            result-list (dlp/process-chunks
+                         #(dlp/deidentify-content (String. %) info-types)
+                         chunk-list)
+            redacted-str (clojure.string/join (map #(first %) result-list))
+            overview-metrics (-> (map #(dlp/overview->map (second %)) result-list)
+                                 dlp/overview-metrics)
+            overview-metrics (assoc overview-metrics :agent.total_chunks total-chunks)]
+        (log/info overview-metrics "redact shell output")
         [(assoc task
                 :shell-stdout redacted-str
-                :findings-metrics findings-metrics
+                :overview-metrics overview-metrics
                 :redacted true) nil])
       (catch Throwable e
         (log/warn e {:task-id (:id task)} "failed to redact output from shell command")
@@ -608,7 +607,7 @@ fi")
         redact (:redact task)
         stdout-size (:shell-stdout-size task)
         task (assoc task :tracing-context
-                    (merge (:findings-metrics task)
+                    (merge (:overview-metrics task)
                            {:agent.org (:org task)
                             :agent.exit_code exit-code
                             :agent.stdout stdout?
