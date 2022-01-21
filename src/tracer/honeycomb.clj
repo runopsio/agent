@@ -108,9 +108,10 @@
                         (.spanBuilder (name root-key))
                         (.startSpan))
                     (merge map-attrs
-                           {:task-id (:id task)
-                            :agent.task_id (:id task)
-                            :agent.version app-version
+                           (when (:id task)
+                             {:task-id (:id task)
+                              :agent.task_id (:id task)})
+                           {:agent.version app-version
                             :agent.revision git-revision}))
          fn-result (call-traced-fn traced-fn (assoc task :tracing-spans
                                                     {root-key root-span}))

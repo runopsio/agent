@@ -7,6 +7,9 @@
             [agent.agent :as agent]
             [io.grpc.Agent.client :as agent-client]
             [backoff.time :as backoff]
+            [agent.errors :refer [err->>]]
+            [tracer.honeycomb :refer [with-tracing
+                                      with-tracing-end]]
             [runtime.data :refer [runtime-data]]))
 
 (def boot-atom (atom nil))
@@ -30,26 +33,35 @@
 (defn subscription-channel! [chan]
   (swap! grpc-channels assoc :subscription-channel chan))
 
+(defn add-root-span [root-key map-attrs]
+  (err->> {}
+          (with-tracing #(vector % nil) [root-key] map-attrs)
+          (with-tracing-end)))
+
 (defn process-message [task]
   (if (:keep-alive-task task)
     (log/info "gRPC noop - received keep alive command from server")
-    (async/thread
-      (try
-        (queue-info-add (:id task))
-        (log/info {:queue (queue-length) :queued-tasks @queue-info :task-id (:id task)}
-                  "starting running task async.")
-        (agent/run-task (assoc task
-                               :mode :grpc
-                               :jwk-verify (:jwk-verify runtime-data)
-                               :queue-lenght (queue-length)))
-
-        (queue-info-remove (:id task))
-        (log/info {:queue (queue-length) :queued-tasks @queue-info :task-id (:id task)}
-                  "finished running task async.")
-        (catch Exception e
+    (do
+      (add-root-span :agent-receive-task {:agent.org (:org task)
+                                          :agent.task_id (:id task)
+                                          :agent.queue_lenght (queue-length)
+                                          :task-id (:id task)})
+      (async/thread
+        (try
+          (queue-info-add (:id task))
+          (log/info {:queue (queue-length) :queued-tasks @queue-info :task-id (:id task)}
+                    "starting running task async.")
+          (agent/run-task (assoc task
+                                 :mode :grpc
+                                 :jwk-verify (:jwk-verify runtime-data)
+                                 :queue-lenght (queue-length)))
           (queue-info-remove (:id task))
-          (log/error {:task-id (:id task) :queue (queue-length)} e "failed to run task.")
-          (sentry-task-logger e task "failed to process message"))))))
+          (log/info {:queue (queue-length) :queued-tasks @queue-info :task-id (:id task)}
+                    "finished running task async.")
+          (catch Exception e
+            (queue-info-remove (:id task))
+            (log/error {:task-id (:id task) :queue (queue-length)} e "failed to run task.")
+            (sentry-task-logger e task "failed to process message")))))))
 
 (defn when-closed [future-to-watch callback]
   (future (callback
@@ -89,6 +101,7 @@
   (reset! boot-atom true)
   (grpc-connect-subscribe {})
   (reset! boot-atom false)
+  (add-root-span :agent-boot {:agent.org (get (mount/args) :org "")})
 
   (loop [n 1]
     (log/info {:grpc-client-alive (clients/grpc-client-alive?)}
