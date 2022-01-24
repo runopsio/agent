@@ -318,11 +318,11 @@ fi")
       [nil "webhook failed"])))
 
 (defn succeed-task-with-message [task message]
-  (webhook {:id (:id task) :status "success" :logs message
+  (webhook {:id (:id task) :status "success" :logs message :uploaded (:uploaded task)
             :tracing-context (:tracing-context task)}))
 
 (defn fail-task-with-message [task message]
-  (webhook {:id (:id task) :status "failure" :logs message
+  (webhook {:id (:id task) :status "failure" :logs message :uploaded (:uploaded task)
             :tracing-context (:tracing-context task)}))
 
 (declare run-task
@@ -337,6 +337,7 @@ fi")
          render-script
          fetch-runtime-args
          run-command
+         s3-upload
          redact-content
          report-result)
 
@@ -356,6 +357,7 @@ fi")
               (with-tracing fetch-runtime-args [:run-agent-task :fetch-runtime-args])
               (with-tracing run-command [:run-agent-task (keyword (:type task))])
               (with-tracing redact-content [:run-agent-task :redact-content])
+              (with-tracing s3-upload [:run-agent-task :s3-upload])
               (with-tracing report-result [:run-agent-task :report-result])
               (with-tracing-end)))
 
@@ -594,6 +596,32 @@ fi")
                 :shell-stdout (:shell-stdout task)
                 :redacted true) nil])))
 
+(defn s3-upload [task]
+  (let [task-output (if (= (:shell-exit-code task) 0)
+                      (:shell-stdout task)
+                      (:shell-stderr task))
+        pre-signed-url (:pre-signed-url task)
+        res (try
+              (if (clojure.string/blank? pre-signed-url)
+                {:status -1 :chunked? false :request-time 0 :protocol-version {:name "HTTP" :major 1 :minor 1}}
+                (http-client/put (:pre-signed-url task) {:content-type "application/octet-stream"
+                                                         :body task-output}))
+              (catch Exception e
+                (let [inf (ex-data e)]
+                  (log/warn e {:task-id (:id task)} "failed to upload task to S3")
+                  (sentry-task-logger e task "failed to upload task to S3")
+                  {:request-time (:request-time inf)
+                   :status (:status inf)
+                   :chunked? (:chunked? inf)
+                   :protocol-version (:protocol-version inf)})))
+        proto (:protocol-version res)
+        protocol-version (str (:name proto) "/" (:major proto) "." (:minor proto))]
+    [(assoc task :uploaded (= (:status res) 200)
+            :s3-metrics {:agent.s3.request_time (:request-time res)
+                         :agent.s3.status_code (:status res)
+                         :agent.s3.chunked (:chunked? res)
+                         :agent.s3.protocol_version protocol-version}) nil]))
+
 (defn report-result [task]
   (when (= (System/getenv "DEBUG_OUTPUT") "true")
     (log/info {:task-id (:id task)
@@ -606,8 +634,10 @@ fi")
         redacted? (:redacted task)
         redact (:redact task)
         stdout-size (:shell-stdout-size task)
-        task (assoc task :tracing-context
+        task (assoc task :uploaded (:uploaded task)
+                    :tracing-context
                     (merge (:overview-metrics task)
+                           (:s3-metrics task)
                            {:agent.org (:org task)
                             :agent.exit_code exit-code
                             :agent.stdout stdout?

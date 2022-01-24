@@ -60,7 +60,7 @@
                     "finished running task async.")
           (catch Exception e
             (queue-info-remove (:id task))
-            (log/error {:task-id (:id task) :queue (queue-length)} e "failed to run task.")
+            (log/error e {:task-id (:id task) :queue (queue-length)} "failed to run task.")
             (sentry-task-logger e task "failed to process message")))))))
 
 (defn when-closed [future-to-watch callback]

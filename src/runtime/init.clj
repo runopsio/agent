@@ -66,7 +66,7 @@
           json/read-str
           keywordize-keys)
      (catch Exception e
-       (log/error {:jwk-url jwk-url} e "failed to obtain JWK public keys")
+       (log/error e {:jwk-url jwk-url} "failed to obtain JWK public keys")
        ;; passing the :throwable here strangely doesn't work 
        (sentry-logger {:message (format "failed to obtain JWK public keys, ex-info: %s" e)})
        (System/exit 1)))))

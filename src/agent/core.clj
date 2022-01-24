@@ -11,7 +11,10 @@
             [backoff.time :as backoff]
             [runtime.init :as init]
             [mount.core :as mount]
-            [dlp.gcp :as dlp])
+            [dlp.gcp :as dlp]
+            [clj-http.client :as http-client]
+            [amazonica.aws.s3 :as s3]
+            [amazonica.core :refer [with-credential]])
   (:gen-class))
 
 (def tags (System/getenv "TAGS"))
