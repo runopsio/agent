@@ -597,15 +597,15 @@ fi")
                 :redacted true) nil])))
 
 (defn s3-upload [task]
-  (let [task-output (if (= (:shell-exit-code task) 0)
+  (let [task-output (if (= 0 (:shell-exit-code task))
                       (:shell-stdout task)
                       (:shell-stderr task))
-        pre-signed-url (:pre-signed-url task)
+        pre-signed-url (:pre-signed-upload-url task)
         res (try
               (if (clojure.string/blank? pre-signed-url)
                 {:status -1 :chunked? false :request-time 0 :protocol-version {:name "HTTP" :major 1 :minor 1}}
-                (http-client/put (:pre-signed-url task) {:content-type "application/octet-stream"
-                                                         :body task-output}))
+                (http-client/put (:pre-signed-upload-url task) {:content-type "application/octet-stream"
+                                                                :body task-output}))
               (catch Exception e
                 (let [inf (ex-data e)]
                   (log/warn e {:task-id (:id task)} "failed to upload task to S3")
