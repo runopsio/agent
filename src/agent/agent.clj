@@ -81,7 +81,7 @@
                    parts (clojure.string/split (:script task) #" ")
                    resource-name (first parts)
                    script (clojure.string/join " " (rest parts))
-                   outcome (shell/sh "/bin/bash" :in (str "set -x; exec "
+                   outcome (shell/sh "/bin/bash" :in (str "exec "
                                                           (format "kubectl --kubeconfig %s " (.getAbsolutePath kube-file))
                                                           "exec " resource-name " -- "
                                                           script))]
