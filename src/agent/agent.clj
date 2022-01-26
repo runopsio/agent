@@ -78,13 +78,15 @@
 (def sh-k8s-exec
   (fn [task] (let [kube-file (File/createTempFile "task" (str (:id task)))
                    _ (spit kube-file (clients/decode-base64 (:KUBE_CONFIG_DATA (:secrets task))))
-                   script-items (clojure.string/split (:script task) #" ")
-                   command-items ["kubectl" "--kubeconfig" (.getAbsolutePath kube-file)
-                                  "exec" (first script-items) "--"]
-                   command-items (apply conj command-items (rest script-items))
-                   sh (apply shell/sh command-items)]
+                   parts (clojure.string/split (:script task) #" ")
+                   resource-name (first parts)
+                   script (clojure.string/join " " (rest parts))
+                   outcome (shell/sh "/bin/bash" :in (str "set -x; exec "
+                                                          (format "kubectl --kubeconfig %s " (.getAbsolutePath kube-file))
+                                                          "exec " resource-name " -- "
+                                                          script))]
                (.delete kube-file)
-               sh)))
+               outcome)))
 
 (def sh-mongo
   (fn [task] (shell/sh "mongo" (:MONGO_CONNECTION_URI (:secrets task))
