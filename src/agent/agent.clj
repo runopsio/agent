@@ -283,6 +283,30 @@ fi")
    :rails-console-k8s sh-rails-console-k8s
    :rails-console-ecs sh-rails-console-ecs})
 
+(defn s3-task-upload [task task-output]
+  (let [_ (log/info {:status (:status task) :task-id (:id task)} "Starting uploading to S3")
+        pre-signed-url (:pre-signed-upload-url task)
+        res (try
+              (if (clojure.string/blank? pre-signed-url)
+                {:status -1 :chunked? false :request-time 0 :protocol-version {:name "HTTP" :major 1 :minor 1}}
+                (http-client/put (:pre-signed-upload-url task) {:content-type "application/octet-stream"
+                                                                :body task-output}))
+              (catch Exception e
+                (let [inf (ex-data e)]
+                  (log/warn e {:task-id (:id task)} "failed to upload task to S3")
+                  (sentry-task-logger e task "failed to upload task to S3")
+                  {:request-time (:request-time inf)
+                   :status (:status inf)
+                   :chunked? (:chunked? inf)
+                   :protocol-version (:protocol-version inf)})))
+        proto (:protocol-version res)
+        protocol-version (str (:name proto) "/" (:major proto) "." (:minor proto))]
+    (assoc task :uploaded (= (:status res) 200)
+           :s3-metrics {:agent.s3.request_time (:request-time res)
+                        :agent.s3.status_code (:status res)
+                        :agent.s3.chunked (:chunked? res)
+                        :agent.s3.protocol_version protocol-version})))
+
 (def webhook-call-lock (Object.))
 
 (defn webhook-http-call [attempt data]
@@ -307,7 +331,7 @@ fi")
   (try
     (let [[res err] (loop [attempts 5 grpc-response nil err nil]
                       (if (or (not (empty? grpc-response)) (= attempts 0)) [grpc-response err]
-                          (let [[res err] (webhook-http-call (- 6 attempts) (dissoc task :mode))]
+                          (let [[res err] (webhook-http-call (- 6 attempts) (dissoc task :tracing-context))]
                             (recur (dec attempts) res err))))
           _ (when (some? err) (throw err))
           webhook-metrics {:agent.webhook_req_time (:request-time res)
@@ -320,12 +344,18 @@ fi")
       [nil "webhook failed"])))
 
 (defn succeed-task-with-message [task message]
-  (webhook {:id (:id task) :status "success" :logs message :uploaded (:uploaded task)
-            :tracing-context (:tracing-context task)}))
+  (let [task (s3-task-upload task message)]
+    (webhook {:id (:id task) :status "success" :logs message
+              :uploaded (:uploaded task) :redacted (:redacted task)
+              :tracing-context (merge (:tracing-context task)
+                                      (:s3-metrics task))})))
 
 (defn fail-task-with-message [task message]
-  (webhook {:id (:id task) :status "failure" :logs message :uploaded (:uploaded task)
-            :tracing-context (:tracing-context task)}))
+  (let [task (s3-task-upload task message)]
+    (webhook {:id (:id task) :status "failure" :logs message
+              :uploaded (:uploaded task) :redacted true ;; error must not be redacted
+              :tracing-context (merge (:tracing-context task)
+                                      (:s3-metrics task))})))
 
 (declare run-task
          validate-user-token
@@ -339,7 +369,6 @@ fi")
          render-script
          fetch-runtime-args
          run-command
-         s3-upload
          redact-content
          report-result)
 
@@ -359,7 +388,6 @@ fi")
               (with-tracing fetch-runtime-args [:run-agent-task :fetch-runtime-args])
               (with-tracing run-command [:run-agent-task (keyword (:type task))])
               (with-tracing redact-content [:run-agent-task :redact-content])
-              (with-tracing s3-upload [:run-agent-task :s3-upload])
               (with-tracing report-result [:run-agent-task :report-result])
               (with-tracing-end)))
 
@@ -598,32 +626,6 @@ fi")
                 :shell-stdout (:shell-stdout task)
                 :redacted true) nil])))
 
-(defn s3-upload [task]
-  (let [task-output (if (= 0 (:shell-exit-code task))
-                      (:shell-stdout task)
-                      (:shell-stderr task))
-        pre-signed-url (:pre-signed-upload-url task)
-        res (try
-              (if (clojure.string/blank? pre-signed-url)
-                {:status -1 :chunked? false :request-time 0 :protocol-version {:name "HTTP" :major 1 :minor 1}}
-                (http-client/put (:pre-signed-upload-url task) {:content-type "application/octet-stream"
-                                                                :body task-output}))
-              (catch Exception e
-                (let [inf (ex-data e)]
-                  (log/warn e {:task-id (:id task)} "failed to upload task to S3")
-                  (sentry-task-logger e task "failed to upload task to S3")
-                  {:request-time (:request-time inf)
-                   :status (:status inf)
-                   :chunked? (:chunked? inf)
-                   :protocol-version (:protocol-version inf)})))
-        proto (:protocol-version res)
-        protocol-version (str (:name proto) "/" (:major proto) "." (:minor proto))]
-    [(assoc task :uploaded (= (:status res) 200)
-            :s3-metrics {:agent.s3.request_time (:request-time res)
-                         :agent.s3.status_code (:status res)
-                         :agent.s3.chunked (:chunked? res)
-                         :agent.s3.protocol_version protocol-version}) nil]))
-
 (defn report-result [task]
   (when (= (System/getenv "DEBUG_OUTPUT") "true")
     (log/info {:task-id (:id task)
@@ -636,17 +638,15 @@ fi")
         redacted? (:redacted task)
         redact (:redact task)
         stdout-size (:shell-stdout-size task)
-        task (assoc task :uploaded (:uploaded task)
-                    :tracing-context
-                    (merge (:overview-metrics task)
-                           (:s3-metrics task)
-                           {:agent.org (:org task)
-                            :agent.exit_code exit-code
-                            :agent.stdout stdout?
-                            :agent.stderr stderr?
-                            :agent.redacted redacted?
-                            :agent.redact redact
-                            :agent.stdout_size stdout-size}))]
+        task (assoc task
+                    :tracing-context (merge (:overview-metrics task)
+                                            {:agent.org (:org task)
+                                             :agent.exit_code exit-code
+                                             :agent.stdout stdout?
+                                             :agent.stderr stderr?
+                                             :agent.redacted redacted?
+                                             :agent.redact redact
+                                             :agent.stdout_size stdout-size}))]
     (if (= (:shell-exit-code task) 0)
       (succeed-task-with-message task (:shell-stdout task))
       (fail-task-with-message task (:shell-stderr task)))))
