@@ -1,0 +1,37 @@
+# Default values for agent.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicas: 1
+
+config:
+  # token is the authentication key to fetch tasks that matches your organization / tag
+  # go to https://use.runops.io/agents to generate a new token for your agent
+  token: ''
+  # set a tag if you wish to run multiple instances in multiple environments,
+  # an agent doesn't accept running multiple instances of the same tag.
+  # tag example names: pg-production, pg-homolog, mysql-prod, mysql-dev, python-prod
+  tags: ''
+  # set this values if you're using the AWS secret manager for targets, this
+  # will fetch secrets from the secret manager and inject in the runtime of a running task.
+  # https://runops.io/docs/concepts/targets/#secret_provider
+  # aws:
+  #   access_key_id: AKIA...
+  #   secret_access_key: ob6uwqnca8ksa+asl...
+  #   region: us-east-1
+  # enforce validation of tasks verifying session authentication
+  # https://runops.io/docs/agent/configuration/#enhanced-agent-security
+  # jwk_url: 'https://runops.us.auth0.com/.well-known/jwks.json'
+
+# if you're using env-var as a secret provider, specify the configuration
+# of targets in this key, those values will be available as environment variables
+# when accesses through scripts like (bash, python, elixir, etc)
+# https://runops.io/docs/concepts/targets/#secret_provider
+# https://runops.io/docs/concepts/integrations
+env_var: {}
+
+image:
+  repository: runops/agent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+
