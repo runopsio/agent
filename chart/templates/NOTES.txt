@@ -1,0 +1,12 @@
+Thank you for installing the Runops Agent.
+
+  Website: https://runops.io/
+  Documentation: https://runops.io/docs
+  Agent App: https://github.com/runopsio/agent
+
+Your release is named {{ .Release.Name }}.
+
+To learn more about the release, try:
+
+  $ helm status {{ .Release.Name }} --namespace {{ .Release.Namespace }}
+  $ helm get all {{ .Release.Name }} --namespace {{ .Release.Namespace }}
