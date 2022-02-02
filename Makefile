@@ -27,11 +27,16 @@ build:
 	lein bump-version ${MUTABLE_VERSION}
 	lein uberjar
 
+build-helm:
+	./scripts/bump-chart-version.sh ${MUTABLE_VERSION}
+	helm package ./charts --destination ./target/
+
 release:
 	./scripts/gh-release.sh
 
 gh-upload:
 	gh release upload --clobber ${MUTABLE_VERSION} ./target/uberjar/agent-${MUTABLE_VERSION}-standalone.jar
+	gh release upload --clobber ${MUTABLE_VERSION} ./target/agent-${MUTABLE_VERSION}.tgz
 
 docker-build:
 	docker build --build-arg VERSION=${MUTABLE_VERSION} -t ${MUTABLE_IMAGE} .

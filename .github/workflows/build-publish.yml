@@ -32,6 +32,11 @@ jobs:
           key: ${{ runner.os }}-maven-${{ hashFiles('project.clj') }}
           restore-keys: |
             ${{ runner.os }}-maven-
+
+      - name: Install Helm
+        uses: azure/setup-helm@v1
+        with:
+          version: '3.8.0'
         
       - name: Docker Login
         run: docker login -u=${{ secrets.DOCKER_LOGIN }} -p=${{ secrets.DOCKER_PASSWORD }}
@@ -45,7 +50,10 @@ jobs:
       - name: Build Jar
         run: make build
 
-      - name: Publish Jar
+      - name: Build Helm Package
+        run: make build-helm
+
+      - name: Publish Artifacts
         run: make gh-upload
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
