@@ -19,12 +19,15 @@ git clone git@github.com:runopsio/agent.git && cd agent
 kubectl create ns runops
 ```
 
+> Starting from version 0.13.2 it's possible to download the tarball containing the helm package, so you could:
+> `helm upgrade --install agent https://github.com/runopsio/agent/releases/download/0.13.2/agent-0.13.2.tgz`
+
 3. Deploy the agent with custom configuration
 
 ```sh
 AGENT_TOKEN=
 # install or upgrade an agent with env var as credentials
-helm upgrade --install agent ./chart \
+helm upgrade --install agent ./charts \
     --set config.token=$AGENT_TOKEN \
     --set env_var.PG_HOST=127.0.0.1 \
     --set env_var.PG_USER=root \
@@ -38,7 +41,7 @@ In order to redeploy changing the `PG_DB` env var, run the command again:
 
 ```sh
 AGENT_TOKEN=
-helm upgrade --install agent ./chart \
+helm upgrade --install agent ./charts \
     --set config.token=$AGENT_TOKEN \
     --set env_var.PG_HOST=127.0.0.1 \
     --set env_var.PG_USER=root \
@@ -52,7 +55,7 @@ Run a second instance using a distinct tag
 
 ```sh
 AGENT_TOKEN=
-helm upgrade --install agent-dev ./chart \
+helm upgrade --install agent-dev ./charts \
     --set config.token=$AGENT_TOKEN \
     --set config.tags=dev \
     --set env_var.PG_HOST=127.0.0.1 \
