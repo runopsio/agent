@@ -1,9 +1,9 @@
-name: Publish
+name: Publish Chart
 
 on:
   push:
-    tags:
-      - '*'
+    branches:
+      - main
 
 jobs:
   release:
