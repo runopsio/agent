@@ -33,9 +33,10 @@
                  [org.slf4j/slf4j-api "1.7.30"]
 
                  ; aws
-                 [com.cognitect.aws/api "0.8.524"]
-                 [com.cognitect.aws/endpoints "1.1.12.69"]
-                 [com.cognitect.aws/ecs "813.2.972.0"]
+                 [amazonica/amazonica "0.3.159" :exclusions [com.amazonaws/aws-java-sdk
+                                                             com.amazonaws/amazon-kinesis-client
+                                                             com.amazonaws/dynamodb-streams-kinesis-adapter]]
+                 [com.amazonaws/aws-java-sdk-ecs "1.11.968"]
 
                  ;; gcp
                  [com.google.cloud/google-cloud-dlp "3.1.0"]

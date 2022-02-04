@@ -58,7 +58,7 @@
           (queue-info-remove (:id task))
           (log/info {:queue (queue-length) :queued-tasks @queue-info :task-id (:id task)}
                     "finished running task async.")
-          (catch Exception e
+          (catch Throwable e
             (queue-info-remove (:id task))
             (log/error e {:task-id (:id task) :queue (queue-length)} "failed to run task.")
             (sentry-task-logger e task "failed to process message")))))))
