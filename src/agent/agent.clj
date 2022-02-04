@@ -6,8 +6,7 @@
             [clojure.java.io :refer [delete-file]]
             [agent.clients :as clients]
             [agent.secrets :as secrets]
-            [cognitect.aws.client.api :as aws]
-            [cognitect.aws.credentials :as credentials]
+            [amazonica.aws.ecs :as ecs]
             [clj-http.client :as http-client]
             [clojure.data.json :as json]
             [crypto.sign :as crypto]
@@ -534,35 +533,22 @@ fi")
 (defn fetch-runtime-args [task]
   (case (:type task)
     "rails-console-ecs"
-    (let [secrets (:secrets task)
-          _ (log/info "fetching ECS Task ID")
-          ecs-client (aws/client {:api :ecs
-                                  :region (:ECS_AWS_REGION secrets)
-                                  :credentials-provider
-                                  (credentials/basic-credentials-provider
-                                   {:access-key-id (:ECS_AWS_ACCESS_KEY_ID secrets)
-                                    :secret-access-key (:ECS_AWS_SECRET_ACCESS_KEY secrets)})})
-          _ (aws/validate-requests ecs-client true) ; validate wrong arguments
-          ecs-response (aws/invoke ecs-client {:op :ListTasks
-                                               :request {:serviceName (:ECS_SERVICE_NAME secrets)
-                                                         :cluster (:ECS_CLUSTER secrets)
-                                                         :maxResults 1}})
-          ecs-task-arn (first (:taskArns ecs-response))
-          non-valid-ecs-task (or (contains? ecs-response :cognitect.anomalies/category)
-                                 (empty? ecs-task-arn))]
-      (if non-valid-ecs-task
-        (let [msg-err (if (contains? ecs-response :cognitect.anomalies/category)
-                        (format "failed to obtain ECS Task ID, type=%s, message=%s, anomaly=%s"
-                                (:__type ecs-response)
-                                (:message ecs-response)
-                                (name (:cognitect.anomalies/category ecs-response)))
-                        (format "failed to obtain ECS Task ID for service=%s, cluster=%s, region=%s"
-                                (:ECS_SERVICE_NAME secrets)
-                                (:ECS_CLUSTER secrets)
-                                (:ECS_AWS_REGION secrets)))]
-          (log/warn msg-err)
-          (fail-task-with-message task msg-err))
-        [(assoc task :runtime-args {:ecs-task-arn ecs-task-arn}) nil]))
+    (try
+      (let [secrets (:secrets task)
+            _ (log/info "fetching ECS Task ID")
+            ecs-cred {:access-key (:ECS_AWS_ACCESS_KEY_ID secrets)
+                      :secret-key (:ECS_AWS_SECRET_ACCESS_KEY secrets)
+                      :endpoint   (:ECS_AWS_REGION secrets)}
+            ecs-response (ecs/list-tasks ecs-cred {:cluster (:ECS_CLUSTER secrets)
+                                                   :service-name (:ECS_SERVICE_NAME secrets)
+                                                   :max-results 1})
+            ecs-task-arn (first (:task-arns ecs-response))]
+        [(assoc task :runtime-args {:ecs-task-arn ecs-task-arn}) nil]
+        )
+      (catch Throwable e
+        (log/error e "failed to obtain ECS Task ID")
+        (sentry-task-logger e task "failed to obtain ECS Task ID")
+        (fail-task-with-message task "failed to obtain ECS Task ID")))
     [task nil]))
 
 (defn run-command [task]
