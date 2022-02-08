@@ -440,10 +440,12 @@ fi")
   (log/info (format "Locking task id [%s]" (:id task)))
   (try
     (let [response (http-client/post (format "%s/v1/tasks/%s/lock" clients/api-url (:id task))
-                                     {:headers {"Authorization" (str "Bearer " clients/token)}
-                                      :throw-exceptions false})]
+                                     {:headers {"Authorization" (str "Bearer " clients/token)
+                                                "Accept" "application/edn"}
+                                      :throw-exceptions false})
+          body (read-string (:body response))]
       (if (http-client/success? response)
-        [task nil]
+        [(assoc task :pre-signed-upload-url (:pre_signed_upload_url body)) nil]
         [nil "task not found"]))
     (catch Exception e
       (log/error (format "failed to lock task id [%s] with error: %s" (:id task) e))
@@ -543,8 +545,7 @@ fi")
                                                    :service-name (:ECS_SERVICE_NAME secrets)
                                                    :max-results 1})
             ecs-task-arn (first (:task-arns ecs-response))]
-        [(assoc task :runtime-args {:ecs-task-arn ecs-task-arn}) nil]
-        )
+        [(assoc task :runtime-args {:ecs-task-arn ecs-task-arn}) nil])
       (catch Throwable e
         (log/error e "failed to obtain ECS Task ID")
         (sentry-task-logger e task "failed to obtain ECS Task ID")
