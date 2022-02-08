@@ -98,6 +98,49 @@ export ENV_CONFIG='{"PG_HOST": "127.0.0.1", "PG_USER": "appuser", "PG_PASS": "12
 curl -sL https://raw.githubusercontent.com/runopsio/agent/main/setup/k8s.sh | bash
 ```
 
+## Docker Local
+
+Run an agent locally with pg configuration integration
+
+> You could pass the address of a local postgres installation, mind to change the PG_HOST to a docker container or your host running postgres.
+
+```sh
+AGENT_TOKEN=$(runops agents create-token -f)
+runops agents docker-run \
+	--token $AGENT_TOKEN \
+	--ev PG_HOST=127.0.0.1 \
+	--ev PG_USER=root \
+	--ev PG_PASS=passwd \
+	--ev PG_DB=test \
+	--name agent --rm
+```
+
+Run an new agent instance with a distinct tag
+
+```sh
+runops agents docker-run \
+	--tags dev \
+        --token $AGENT_TOKEN \
+        --ev PG_HOST=127.0.0.1 \
+        --ev PG_USER=root \
+        --ev PG_PASS=passwd \
+        --ev PG_DB=test \
+        --name agent --rm
+```
+
+Add a custom environment variable to the agent
+
+```sh
+runops agents docker-run \
+        --token $AGENT_TOKEN \
+        --ev PG_HOST=127.0.0.1 \
+        --ev PG_USER=root \
+        --ev PG_PASS=passwd \
+        --ev PG_DB=test \
+        -e MYCUSTOM_ENV=my-custom-env-val \
+        --name agent --rm
+```
+
 ## Standalone
 
 This mode will download and execute the jar locally, in order for this to work the environment need to be installed with all requirement dependencies, check the [Dockerfile](../Dockerfile) for reference.
