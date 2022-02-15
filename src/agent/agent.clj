@@ -584,7 +584,7 @@ fi")
     (do (log/info "skipping redact, reached max size (1MB) for redacting task output")
         [(assoc task
                 :shell-stdout (:shell-stdout task)
-                :redacted false) nil])
+                :redacted true) nil])
     (= (get task :redact "all") "all")
     (try
       (let [chunk-list (dlp/bytes->chunks (:shell-stdout task))
