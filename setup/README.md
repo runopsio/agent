@@ -8,9 +8,7 @@ Explain how to install the runops agent in several environments
 
 - [Install helm 3](https://helm.sh/docs/intro/install/)
 - A Kubernetes Cluster
-- Ask the runops team for an agent token
-
-> We'll be providing a way to generate and reset the the agent token straight from the cli and the webapp in the near future
+- Ask an Runops administrator for an agent token
 
 2. Clone the agent repo and create a namespace
 
@@ -24,16 +22,18 @@ kubectl create ns runops
 
 3. Deploy the agent with custom configuration
 
+> NOTE: If you're an administrator, you could create an agent token by running: `runops agents create-token`
+
 ```sh
 AGENT_TOKEN=
 # install or upgrade an agent with env var as credentials
 helm upgrade --install agent ./charts \
     --set config.token=$AGENT_TOKEN \
-    --set env_var.PG_HOST=127.0.0.1 \
-    --set env_var.PG_USER=root \
-    --set env_var.PG_PASS=pg-root-pass \
-    --set env_var.PG_DB=appdb \
-    --set env_var.MYAPP_ENV=app-custom-env \
+    --set env_var[0].env=PG_CONFIG \
+    --set env_var[0].vars.PG_HOST=127.0.0.1 \
+    --set env_var[0].vars.PG_USER=root \
+    --set env_var[0].vars.PG_PASS=pg-root-pass \
+    --set env_var[0].vars.PG_DB=appdb
     --namespace runops
 ```
 
@@ -43,11 +43,11 @@ In order to redeploy changing the `PG_DB` env var, run the command again:
 AGENT_TOKEN=
 helm upgrade --install agent ./charts \
     --set config.token=$AGENT_TOKEN \
-    --set env_var.PG_HOST=127.0.0.1 \
-    --set env_var.PG_USER=root \
-    --set env_var.PG_PASS=pg-root-pass \
-    --set env_var.PG_DB=appdb-prod \
-    --set env_var.MYAPP_ENV=app-custom-env \
+    --set env_var[0].env=PG_CONFIG \
+    --set env_var[0].vars.PG_HOST=127.0.0.1 \
+    --set env_var[0].vars.PG_USER=root \
+    --set env_var[0].vars.PG_PASS=pg-root-pass \
+    --set env_var[0].vars.PG_DB=appdb-dev \
     --namespace runops
 ```
 
@@ -58,12 +58,48 @@ AGENT_TOKEN=
 helm upgrade --install agent-dev ./charts \
     --set config.token=$AGENT_TOKEN \
     --set config.tags=dev \
-    --set env_var.PG_HOST=127.0.0.1 \
-    --set env_var.PG_USER=root \
-    --set env_var.PG_PASS=pg-root-pass \
-    --set env_var.PG_DB=appdb-dev \
-    --set env_var.MYAPP_ENV=app-custom-env \
+    --set env_var[0].env=PG_CONFIG \
+    --set env_var[0].vars.PG_HOST=127.0.0.1 \
+    --set env_var[0].vars.PG_USER=root \
+    --set env_var[0].vars.PG_PASS=pg-root-pass \
+    --set env_var[0].vars.PG_DB=appdb-dev \
+    --set env_var[1].env=MYSQL_CONFIG \
+    --set env_var[1].vars.MYSQL_HOST=127.0.0.1 \
+    --set env_var[1].vars.MYSQL_USER=root \
+    --set env_var[1].vars.MYSQL_PASS=mysql-db-pass \
+    --set env_var[1].vars.MYSQL_DB=appdb-homolog \
+    --set env_var[2].env=APP_CONFIG \
+    --set env_var[2].vars.MYAPP_SECRET=mysuper-secret \
+    --set env_var[2].vars.MYAPP_KEY=appkey \
     --namespace runops
+```
+
+> Optionally if you prefer you could use a values.yml file to populate all these attributes
+
+Then you could associate and use those secrets by creating a target:
+
+```sh
+# running a task with this target will use the credentials of PG_CONFIG vars
+runops targets create \
+    --type postgres \
+    --name appdb-dev \
+    --secret_provider env-var \
+    --secret_path PG_CONFIG
+
+# running a task with this target will use the credentials of MYSQL_CONFIG vars
+runops targets create \
+    --type mysql \
+    --name appdb-homolog \
+    --secret_provider env-var \
+    --secret_path MYSQL_CONFIG
+
+# running a task with this target will expose the credentials of APP_CONFIG as environment variables
+# you could access then using os.environ in python
+runops targets create \
+    --type python \
+    --name myapp-python \
+    --secret_provider env-var \
+    --secret_path APP_CONFIG
 ```
 
 4. To uninstall
@@ -94,7 +130,15 @@ curl -sL https://raw.githubusercontent.com/runopsio/agent/main/setup/k8s.sh | ba
 ```sh
 export AGENT_TOKEN=<agent-token>
 export AGENT_TAG=homolog
-export ENV_CONFIG='{"PG_HOST": "127.0.0.1", "PG_USER": "appuser", "PG_PASS": "123", "PG_DB": "appdb", "PG_PORT": 5432}'
+export ENV_CONFIG=`cat - <<EOF
+{
+  "PG_HOST": "127.0.0.1",
+  "PG_USER": "appuser",
+  "PG_PASS": "123",
+  "PG_DB": "appdb",
+  "PG_PORT": 5432
+}
+EOF`
 curl -sL https://raw.githubusercontent.com/runopsio/agent/main/setup/k8s.sh | bash
 ```
 
