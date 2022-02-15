@@ -23,10 +23,8 @@ spec:
       - envFrom:
         - secretRef:
             name: {{ .Release.Name }}-config
-        {{- if .Values.env_var }}
         - secretRef:
             name: {{ .Release.Name }}-envvar
-        {{- end }}
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
         imagePullPolicy: Always
         resources:

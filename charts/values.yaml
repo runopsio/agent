@@ -25,10 +25,30 @@ config:
 
 # if you're using env-var as a secret provider, specify the configuration
 # of targets in this key, those values will be available as environment variables
-# when accesses through scripts like (bash, python, elixir, etc)
+# when accesses through scripts like (bash, python, elixir, etc).
+# In case of database types (mysql, postgres, etc), it will be used as parameters 
+# to connect to database instances.
 # https://runops.io/docs/concepts/targets/#secret_provider
 # https://runops.io/docs/concepts/integrations
-env_var: {}
+# env_var:
+#   - env: MYSQL_CONFIG
+#     val:
+#       MYSQL_HOST: 127.0.0.1
+#       MYSQL_USER: root
+#       MYSQL_DB: testdb
+#       MYSQL_PASS: rootpasswd
+#       MYSQL_PORT: 3306
+#   - env: PG_CONFIG
+#     val:
+#       PG_HOST: 127.0.0.1
+#       PG_USER: root
+#       PG_DB: pgdb
+#       PG_PASS: pgpasswd
+#       PG_PORT: 5432
+#   - env: APP_CONFIG
+#     val:
+#       MYAPP_SECRET: supersecret
+#       MYAPP_KEY: appkey
 
 image:
   repository: runops/agent
