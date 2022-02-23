@@ -313,7 +313,8 @@ fi")
     [(locking webhook-call-lock
        (http-client/post (format "%s/v1/webhooks" clients/api-url)
                          {:headers {"Content-Type" "application/json"
-                                    "Authorization" (str "Bearer " clients/token)}
+                                    "Authorization" (str "Bearer " clients/token)
+                                    "Origin" "agent"}
                           :body (json/write-str data)
                           :socket-timeout (backoff/min->ms 2)
                           :connection-timeout (backoff/min->ms 2)})) nil]
@@ -441,7 +442,8 @@ fi")
   (try
     (let [response (http-client/post (format "%s/v1/tasks/%s/lock" clients/api-url (:id task))
                                      {:headers {"Authorization" (str "Bearer " clients/token)
-                                                "Accept" "application/edn"}
+                                                "Accept" "application/edn"
+                                                "Origin" "agent"}
                                       :throw-exceptions false})
           body (read-string (:body response))]
       (if (http-client/success? response)
