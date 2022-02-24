@@ -213,6 +213,9 @@
                     "AWS_SECRET_ACCESS_KEY" (:ECS_AWS_SECRET_ACCESS_KEY secrets)
                     "AWS_REGION" (:ECS_AWS_REGION secrets)})))
 
+(defn- sh-ecs-exec [task]
+  (aws-ecs-exec (:script task) task))
+
 (defn- sh-rails-console-ecs [task]
   (let [base64-script (-> (java.util.Base64/getEncoder)
                           (.encodeToString (.getBytes (str (:script task)))))
@@ -242,13 +245,17 @@ fi")
        (catch Exception _ nil)))
 
 (defn- sh-custom-command [task]
-  (let [custom-command (parser/render (str "{{=[[ ]]=}}" (:custom-command task))
-                                      (merge {:SCRIPT (:script task)} (:secrets task)))
+  (let [task-script (if (= (get-in task [:secrets :SCRIPT_BASE64_ENCODE]) "true")
+                      (-> (java.util.Base64/getEncoder)
+                          (.encodeToString (.getBytes (str (:script task)))))
+                      (:script task))
+        custom-command (parser/render (str "{{=[[ ]]=}}" (:custom-command task))
+                                      (merge {:SCRIPT task-script} (:secrets task)))
         custom-command-script (parser/render custom-command-tmpl {:COMMAND custom-command})
         custom-command-file (format "/tmp/task-script-%s.sh" (:id task))
         custom-command-stdin-file (format "/tmp/task-script-%s.stdin" (:id task))
         _ (when (:stdin-input task)
-            (spit custom-command-stdin-file (:script task)))
+            (spit custom-command-stdin-file task-script))
         _ (spit custom-command-file custom-command-script)
         outcome (if (true? (:stdin-input task))
                   (shell/sh "gosu" "runops" "bash" custom-command-file custom-command-stdin-file
@@ -264,6 +271,8 @@ fi")
 
 (def commands
   {:bash              sh-bash
+   :ecs-exec          sh-ecs-exec
+   :elixir            sh-elixir
    :hashicorp-vault   sh-hashicorp-vault
    :k8s               sh-k8s
    :k8s-apply         sh-k8s-apply
@@ -274,13 +283,12 @@ fi")
    :node              sh-node
    :postgres          sh-postgres
    :postgres-csv      sh-postgres-csv
-   :sql-server        sh-mssql
    :python            sh-python
    :rails             sh-rails
-   :elixir            sh-elixir
    :rails-console     sh-rails-console
    :rails-console-k8s sh-rails-console-k8s
-   :rails-console-ecs sh-rails-console-ecs})
+   :rails-console-ecs sh-rails-console-ecs
+   :sql-server        sh-mssql})
 
 (defn s3-task-upload [task task-output]
   (let [_ (log/info {:status (:status task) :task-id (:id task)} "Starting uploading to S3")
@@ -426,12 +434,14 @@ fi")
         (fail-task-with-message task (format "invalid task type [%s]" (:type task))))))
 
 (defn- parse-custom-command [task]
-  [(assoc task
-          :stdin-input (some #(= (keyword (:type task)) %) [:bash :python
-                                                            :postgres :postgres-csv
-                                                            :mysql :mysql-csv])
-          :command (or (when-not (clojure.string/blank? (:custom-command task))
-                         sh-custom-command) (:command task))) nil])
+  (let [stdin-input (boolean
+                     (some #(= (keyword (:type task)) %) [:bash :python
+                                                          :postgres :postgres-csv
+                                                          :mysql :mysql-csv]))
+        command (if-not (clojure.string/blank? (:custom-command task))
+                  sh-custom-command
+                  (:command task))]
+    [(assoc task :stdin-input stdin-input :command command) nil]))
 
 (defmulti lock-task (fn [task] (:mode task)))
 (defmethod lock-task :grpc [task]
@@ -482,61 +492,12 @@ fi")
         (sentry-task-logger e task "failed reading secret-mapping config")
         (fail-task-with-message task msg-err)))))
 
-(defmulti validate-secrets (fn [task] (:type task)))
-(declare k8s-validation
-         mongodb-validation
-         mysql-validation
-         postgres-validation
-         mssql-validation
-         vault-validation
-         rails-console-k8s-validation
-         rails-console-ecs-validation)
-
-(defmethod validate-secrets :default [task]
-  [task nil])
-
-(defmethod validate-secrets "k8s" [task]
-  (k8s-validation task))
-
-(defmethod validate-secrets "k8s-exec" [task]
-  (k8s-validation task))
-
-(defmethod validate-secrets "k8s-apply" [task]
-  (k8s-validation task))
-
-(defmethod validate-secrets "mongodb" [task]
-  (mongodb-validation task))
-
-(defmethod validate-secrets "mysql" [task]
-  (mysql-validation task))
-
-(defmethod validate-secrets "mysql-csv" [task]
-  (mysql-validation task))
-
-(defmethod validate-secrets "postgres" [task]
-  (postgres-validation task))
-
-(defmethod validate-secrets "postgres-csv" [task]
-  (postgres-validation task))
-
-(defmethod validate-secrets "sql-server" [task]
-  (mssql-validation task))
-
-(defmethod validate-secrets "hashicorp-vault" [task]
-  (vault-validation task))
-
-(defmethod validate-secrets "rails-console-k8s" [task]
-  (rails-console-k8s-validation task))
-
-(defmethod validate-secrets "rails-console-ecs" [task]
-  (rails-console-ecs-validation task))
-
 (defn render-script [task]
   [(assoc task :script (parser/render (:script task) (:secrets task))) nil])
 
 (defn fetch-runtime-args [task]
   (case (:type task)
-    "rails-console-ecs"
+    (or "rails-console-ecs" "ecs-exec")
     (try
       (let [secrets (:secrets task)
             _ (log/info "fetching ECS Task ID")
@@ -547,7 +508,9 @@ fi")
                                                    :service-name (:ECS_SERVICE_NAME secrets)
                                                    :max-results 1})
             ecs-task-arn (first (:task-arns ecs-response))]
-        [(assoc task :runtime-args {:ecs-task-arn ecs-task-arn}) nil])
+        [(assoc task :runtime-args {:ecs-task-arn ecs-task-arn}
+                ;; allow using inside a custom command, e.g. --task [[ECS_TASK_ID]]
+                :secrets (conj (:secrets task) {:ECS_TASK_ID ecs-task-arn})) nil])
       (catch Throwable e
         (log/error e "failed to obtain ECS Task ID")
         (sentry-task-logger e task "failed to obtain ECS Task ID")
@@ -641,6 +604,59 @@ fi")
       (fail-task-with-message task (:shell-stderr task)))))
 
 ;; secrets validations
+(defmulti validate-secrets (fn [task] (:type task)))
+(declare k8s-validation
+         mongodb-validation
+         mysql-validation
+         postgres-validation
+         mssql-validation
+         vault-validation
+         rails-console-k8s-validation
+         rails-console-ecs-validation
+         ecs-exec-validation)
+
+(defmethod validate-secrets :default [task]
+  [task nil])
+
+(defmethod validate-secrets "k8s" [task]
+  (k8s-validation task))
+
+(defmethod validate-secrets "k8s-exec" [task]
+  (k8s-validation task))
+
+(defmethod validate-secrets "k8s-apply" [task]
+  (k8s-validation task))
+
+(defmethod validate-secrets "mongodb" [task]
+  (mongodb-validation task))
+
+(defmethod validate-secrets "mysql" [task]
+  (mysql-validation task))
+
+(defmethod validate-secrets "mysql-csv" [task]
+  (mysql-validation task))
+
+(defmethod validate-secrets "postgres" [task]
+  (postgres-validation task))
+
+(defmethod validate-secrets "postgres-csv" [task]
+  (postgres-validation task))
+
+(defmethod validate-secrets "sql-server" [task]
+  (mssql-validation task))
+
+(defmethod validate-secrets "hashicorp-vault" [task]
+  (vault-validation task))
+
+(defmethod validate-secrets "rails-console-k8s" [task]
+  (rails-console-k8s-validation task))
+
+(defmethod validate-secrets "rails-console-ecs" [task]
+  (rails-console-ecs-validation task))
+
+(defmethod validate-secrets "ecs-exec" [task]
+  (ecs-exec-validation task))
+
 (defn k8s-validation [task]
   (let [secrets (:secrets task)]
     (if (empty? (:KUBE_CONFIG_DATA secrets))
@@ -705,7 +721,7 @@ fi")
         (fail-task-with-message task msg-err))
       [task nil])))
 
-(defn rails-console-ecs-validation [task]
+(defn ecs-exec-validation [task]
   (let [secrets (:secrets task)]
     (if (or (empty? (:ECS_CLUSTER secrets))
             (empty? (:ECS_SERVICE_NAME secrets))
@@ -713,11 +729,15 @@ fi")
             (empty? (:ECS_AWS_ACCESS_KEY_ID secrets))
             (empty? (:ECS_AWS_SECRET_ACCESS_KEY secrets))
             (empty? (:ECS_AWS_REGION secrets)))
-      (let [msg-err "Rails-console-k8s type requires ECS_CLUSTER, ECS_SERVICE_NAME, ECS_CONTAINER, ECS_AWS_ACCESS_KEY_ID, ECS_AWS_SECRET_ACCESS_KEY and ECS_AWS_REGION secret"]
+      (let [msg-err (str (format "%s type requires ECS_CLUSTER, ECS_SERVICE_NAME, ECS_CONTAINER, " (:type task))
+                         "ECS_AWS_ACCESS_KEY_ID, ECS_AWS_SECRET_ACCESS_KEY and ECS_AWS_REGION secret")]
         (log/warn msg-err)
         (sentry-task-logger task msg-err)
         (fail-task-with-message task msg-err))
       [task nil])))
+
+(defn rails-console-ecs-validation [task]
+  (ecs-exec-validation task))
 
 (defn vault-validation [task]
   (let [secrets (:secrets task)]
