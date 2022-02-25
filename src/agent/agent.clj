@@ -89,7 +89,7 @@
 
 (def sh-mongo
   (fn [task] (shell/sh "mongo" (:MONGO_CONNECTION_URI (:secrets task))
-                       "--eval" (:script task))))
+                       :in (:script task))))
 
 (def sh-mysql
   (fn [task] (shell/sh "mysql"
