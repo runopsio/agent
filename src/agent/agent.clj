@@ -376,6 +376,7 @@ fi")
          parse-custom-command
          render-script
          fetch-runtime-args
+         parse-metadata-flags
          run-command
          redact-content
          report-result)
@@ -394,6 +395,7 @@ fi")
               (with-tracing validate-secrets [:run-agent-task :validate-secrets])
               (with-tracing render-script [:run-agent-task :render-script])
               (with-tracing fetch-runtime-args [:run-agent-task :fetch-runtime-args])
+              (with-tracing parse-metadata-flags [:run-agent-task :parse-metadata-flags])
               (with-tracing run-command [:run-agent-task (keyword (:type task))])
               (with-tracing redact-content [:run-agent-task :redact-content])
               (with-tracing report-result [:run-agent-task :report-result])
@@ -516,6 +518,17 @@ fi")
         (sentry-task-logger e task "failed to obtain ECS Task ID")
         (fail-task-with-message task "failed to obtain ECS Task ID")))
     [task nil]))
+
+(defn parse-metadata-flags [task]
+  (let [task-id (:id task)
+        target (:target task)
+        description (:description task)
+        user-email (:user-email task)]
+    [(assoc task :secrets (conj (:secrets task)
+                                {:RUNOPS_TASK_ID task-id
+                                 :RUNOPS_TASK_TARGET target
+                                 :RUNOPS_TASK_DESCRIPTION description
+                                 :RUNOPS_TASK_USER_EMAIL user-email})) nil]))
 
 (defn run-command [task]
   (try

@@ -48,6 +48,9 @@ message TaskResponse {
   bool keep_alive_task = 12;
   string redact = 13;
   string pre_signed_upload_url = 14;
+  string user_email = 15;
+  string target = 16;
+  string description = 17;
 }
 
 message LogsRequest {
