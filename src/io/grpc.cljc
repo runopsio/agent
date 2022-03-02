@@ -497,7 +497,7 @@
 ;-----------------------------------------------------------------------------
 ; TaskResponse
 ;-----------------------------------------------------------------------------
-(defrecord TaskResponse-record [token config custom-command x-b3-parent-span-id id secret-provider pre-signed-upload-url script keep-alive-task secret-path type secret-mapping redact x-b3-trace-id]
+(defrecord TaskResponse-record [token config custom-command x-b3-parent-span-id id secret-provider pre-signed-upload-url script user-email keep-alive-task secret-path type target secret-mapping redact description x-b3-trace-id]
   pb/Writer
   (serialize [this os]
     (serdes.core/write-String 11  {:optimize true} (:token this) os)
@@ -508,11 +508,14 @@
     (serdes.core/write-String 4  {:optimize true} (:secret-provider this) os)
     (serdes.core/write-String 14  {:optimize true} (:pre-signed-upload-url this) os)
     (serdes.core/write-String 3  {:optimize true} (:script this) os)
+    (serdes.core/write-String 15  {:optimize true} (:user-email this) os)
     (serdes.core/write-Bool 12  {:optimize true} (:keep-alive-task this) os)
     (serdes.core/write-String 5  {:optimize true} (:secret-path this) os)
     (serdes.core/write-String 2  {:optimize true} (:type this) os)
+    (serdes.core/write-String 16  {:optimize true} (:target this) os)
     (serdes.core/write-String 6  {:optimize true} (:secret-mapping this) os)
     (serdes.core/write-String 13  {:optimize true} (:redact this) os)
+    (serdes.core/write-String 17  {:optimize true} (:description this) os)
     (serdes.core/write-String 8  {:optimize true} (:x-b3-trace-id this) os))
   pb/TypeReflection
   (gettype [this]
@@ -526,14 +529,17 @@
 (s/def :io.grpc.TaskResponse/secret-provider string?)
 (s/def :io.grpc.TaskResponse/pre-signed-upload-url string?)
 (s/def :io.grpc.TaskResponse/script string?)
+(s/def :io.grpc.TaskResponse/user-email string?)
 (s/def :io.grpc.TaskResponse/keep-alive-task boolean?)
 (s/def :io.grpc.TaskResponse/secret-path string?)
 (s/def :io.grpc.TaskResponse/type string?)
+(s/def :io.grpc.TaskResponse/target string?)
 (s/def :io.grpc.TaskResponse/secret-mapping string?)
 (s/def :io.grpc.TaskResponse/redact string?)
+(s/def :io.grpc.TaskResponse/description string?)
 (s/def :io.grpc.TaskResponse/x-b3-trace-id string?)
-(s/def ::TaskResponse-spec (s/keys :opt-un [:io.grpc.TaskResponse/token :io.grpc.TaskResponse/config :io.grpc.TaskResponse/custom-command :io.grpc.TaskResponse/x-b3-parent-span-id :io.grpc.TaskResponse/id :io.grpc.TaskResponse/secret-provider :io.grpc.TaskResponse/pre-signed-upload-url :io.grpc.TaskResponse/script :io.grpc.TaskResponse/keep-alive-task :io.grpc.TaskResponse/secret-path :io.grpc.TaskResponse/type :io.grpc.TaskResponse/secret-mapping :io.grpc.TaskResponse/redact :io.grpc.TaskResponse/x-b3-trace-id ]))
-(def TaskResponse-defaults {:token "" :config "" :custom-command "" :x-b3-parent-span-id "" :id 0 :secret-provider "" :pre-signed-upload-url "" :script "" :keep-alive-task false :secret-path "" :type "" :secret-mapping "" :redact "" :x-b3-trace-id "" })
+(s/def ::TaskResponse-spec (s/keys :opt-un [:io.grpc.TaskResponse/token :io.grpc.TaskResponse/config :io.grpc.TaskResponse/custom-command :io.grpc.TaskResponse/x-b3-parent-span-id :io.grpc.TaskResponse/id :io.grpc.TaskResponse/secret-provider :io.grpc.TaskResponse/pre-signed-upload-url :io.grpc.TaskResponse/script :io.grpc.TaskResponse/user-email :io.grpc.TaskResponse/keep-alive-task :io.grpc.TaskResponse/secret-path :io.grpc.TaskResponse/type :io.grpc.TaskResponse/target :io.grpc.TaskResponse/secret-mapping :io.grpc.TaskResponse/redact :io.grpc.TaskResponse/description :io.grpc.TaskResponse/x-b3-trace-id ]))
+(def TaskResponse-defaults {:token "" :config "" :custom-command "" :x-b3-parent-span-id "" :id 0 :secret-provider "" :pre-signed-upload-url "" :script "" :user-email "" :keep-alive-task false :secret-path "" :type "" :target "" :secret-mapping "" :redact "" :description "" :x-b3-trace-id "" })
 
 (defn cis->TaskResponse
   "CodedInputStream to TaskResponse"
@@ -549,11 +555,14 @@
                4 [:secret-provider (serdes.core/cis->String is)]
                14 [:pre-signed-upload-url (serdes.core/cis->String is)]
                3 [:script (serdes.core/cis->String is)]
+               15 [:user-email (serdes.core/cis->String is)]
                12 [:keep-alive-task (serdes.core/cis->Bool is)]
                5 [:secret-path (serdes.core/cis->String is)]
                2 [:type (serdes.core/cis->String is)]
+               16 [:target (serdes.core/cis->String is)]
                6 [:secret-mapping (serdes.core/cis->String is)]
                13 [:redact (serdes.core/cis->String is)]
+               17 [:description (serdes.core/cis->String is)]
                8 [:x-b3-trace-id (serdes.core/cis->String is)]
 
                [index (serdes.core/cis->undefined tag is)]))
