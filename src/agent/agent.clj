@@ -359,6 +359,7 @@ fi")
               :uploaded (:uploaded task)
               :redacted (:redacted task)
               :elapsed-time-ms (- (System/currentTimeMillis) (:start-at task))
+              :log-size (count message)
               :tracing-context (merge (:tracing-context task)
                                       (:s3-metrics task))})))
 
@@ -370,6 +371,7 @@ fi")
               :uploaded (:uploaded task)
               :redacted true ;; error must not be redacted
               :elapsed-time-ms (- (System/currentTimeMillis) (:start-at task))
+              :log-size (count message)
               :tracing-context (merge (:tracing-context task)
                                       (:s3-metrics task))})))
 
