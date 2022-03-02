@@ -335,7 +335,6 @@ fi")
       [nil e])))
 
 (defn webhook [task]
-  (println (json/write-str task))
   (log/info {:status (:status task) :task-id (:id task)} "Starting sending webhook")
   (try
     (let [[res err] (loop [attempts 5 grpc-response nil err nil]
