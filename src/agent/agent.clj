@@ -353,15 +353,25 @@ fi")
 
 (defn succeed-task-with-message [task message]
   (let [task (s3-task-upload task message)]
-    (webhook {:id (:id task) :status "success" :logs message
-              :uploaded (:uploaded task) :redacted (:redacted task)
+    (webhook {:id (:id task)
+              :status "success"
+              :logs message
+              :uploaded (:uploaded task)
+              :redacted (:redacted task)
+              :elapsed-time-ms (- (System/currentTimeMillis) (:start-at task))
+              :log-size (count message)
               :tracing-context (merge (:tracing-context task)
                                       (:s3-metrics task))})))
 
 (defn fail-task-with-message [task message]
   (let [task (s3-task-upload task message)]
-    (webhook {:id (:id task) :status "failure" :logs message
-              :uploaded (:uploaded task) :redacted true ;; error must not be redacted
+    (webhook {:id (:id task)
+              :status "failure"
+              :logs message
+              :uploaded (:uploaded task)
+              :redacted true ;; error must not be redacted
+              :elapsed-time-ms (- (System/currentTimeMillis) (:start-at task))
+              :log-size (count message)
               :tracing-context (merge (:tracing-context task)
                                       (:s3-metrics task))})))
 
@@ -382,7 +392,7 @@ fi")
          report-result)
 
 (defn run-task [task]
-  (err/err->> task
+  (err/err->> (assoc task :start-at (System/currentTimeMillis))
               (with-tracing validate-user-token [:run-agent-task])
               (with-tracing validate-queue [:run-agent-task :validate-queue])
               (with-tracing parse-command [:run-agent-task :parse-command])
