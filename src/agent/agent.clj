@@ -80,8 +80,12 @@
                    parts (clojure.string/split (:script task) #" ")
                    resource-name (first parts)
                    script (clojure.string/join " " (rest parts))
+                   namespace (get-in task [:secrets :NAMESPACE])
                    outcome (shell/sh "/bin/bash" :in (str "exec "
-                                                          (format "kubectl --kubeconfig %s " (.getAbsolutePath kube-file))
+                                                          (format "kubectl --kubeconfig %s "
+                                                                  (.getAbsolutePath kube-file))
+                                                          (when namespace
+                                                            (format "-n %s " namespace))
                                                           "exec " resource-name " -- "
                                                           script))]
                (.delete kube-file)
