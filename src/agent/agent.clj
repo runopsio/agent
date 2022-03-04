@@ -62,35 +62,6 @@
                (.delete kube-file)
                sh)))
 
-(def sh-k8s-apply
-  (fn [task] (let [kube-file (File/createTempFile "task" (str (:id task)))
-                   apply-file (File/createTempFile "apply" (str (:id task)))
-                   _ (spit kube-file (clients/decode-base64 (:KUBE_CONFIG_DATA (:secrets task))))
-                   _ (spit apply-file (:script task))
-                   command-items ["kubectl" "--kubeconfig" (.getAbsolutePath kube-file)
-                                  "apply" "-f" (.getAbsolutePath apply-file)]
-                   sh (apply shell/sh command-items)]
-               (.delete kube-file)
-               (.delete apply-file)
-               sh)))
-
-(def sh-k8s-exec
-  (fn [task] (let [kube-file (File/createTempFile "task" (str (:id task)))
-                   _ (spit kube-file (clients/decode-base64 (:KUBE_CONFIG_DATA (:secrets task))))
-                   parts (clojure.string/split (:script task) #" ")
-                   resource-name (first parts)
-                   script (clojure.string/join " " (rest parts))
-                   namespace (get-in task [:secrets :NAMESPACE])
-                   outcome (shell/sh "/bin/bash" :in (str "exec "
-                                                          (format "kubectl --kubeconfig %s "
-                                                                  (.getAbsolutePath kube-file))
-                                                          (when namespace
-                                                            (format "-n %s " namespace))
-                                                          "exec " resource-name " -- "
-                                                          script))]
-               (.delete kube-file)
-               outcome)))
-
 (def sh-mongo
   (fn [task] (shell/sh "mongo" (:MONGO_CONNECTION_URI (:secrets task))
                        :in (:script task))))
@@ -185,6 +156,52 @@
 (def sh-rails-console
   (fn [task] (shell/sh "rails" "runner" (:script task))))
 
+(def sh-k8s-apply
+  (fn [task] (let [kube-file (File/createTempFile "task" (str (:id task)))
+                   apply-file (File/createTempFile "apply" (str (:id task)))
+                   _ (spit kube-file (clients/decode-base64 (:KUBE_CONFIG_DATA (:secrets task))))
+                   _ (spit apply-file (:script task))
+                   command-items ["kubectl" "--kubeconfig" (.getAbsolutePath kube-file)
+                                  "apply" "-f" (.getAbsolutePath apply-file)]
+                   sh (apply shell/sh command-items)]
+               (.delete kube-file)
+               (.delete apply-file)
+               sh)))
+
+(defn sh-k8s-exec [task]
+  (let [kube-file (File/createTempFile "task" (str (:id task)))
+        _ (spit kube-file (clients/decode-base64 (:KUBE_CONFIG_DATA (:secrets task))))
+        namespace (get-in task [:secrets :NAMESPACE])
+        exec-cmd (get-in task [:secrets :K8S_EXEC_COMMAND])
+        resource-name (get-in task [:secrets :K8S_EXEC_RESOURCE])
+        container-name (get-in task [:secrets :K8S_EXEC_CONTAINER])
+        outcome (when (and exec-cmd resource-name)
+                  (shell/sh
+                   "/bin/bash" "-c"
+                   (str (format "exec kubectl --kubeconfig %s " (.getAbsolutePath kube-file))
+                        (format "-n %s " (or namespace "default"))
+                        (when container-name
+                          (format "-c %s " container-name))
+                        (format "exec -i %s -- %s" resource-name exec-cmd))
+                   :in (:script task)))
+        parts (clojure.string/split (:script task) #" ")
+        resource-name (first parts)
+        script (clojure.string/join " " (rest parts))
+        outcome (if outcome
+                  outcome
+                  (shell/sh
+                   "/bin/bash"
+                   :in (str (format "exec kubectl --kubeconfig %s "
+                                    (.getAbsolutePath kube-file))
+                            (when namespace
+                              (format "-n %s " namespace))
+                            (when container-name
+                              (format "-c %s " container-name))
+                            "exec " resource-name " -- " script)))]
+    (.delete kube-file)
+    outcome))
+
+;; DEPRECATED in flavor of sh-k8s-exec
 (def sh-rails-console-k8s
   (fn [task] (let [kube-file (File/createTempFile "task" (str (:id task)))
                    _ (spit kube-file (clients/decode-base64 (:KUBE_CONFIG_DATA (:secrets task))))
