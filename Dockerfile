@@ -18,6 +18,7 @@ RUN apt-get update -y && \
         python3-dev \
         locales \
         gosu \
+        redis-tools \
         apt-utils \
         curl \
         gnupg \
