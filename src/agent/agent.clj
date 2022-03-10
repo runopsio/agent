@@ -179,7 +179,8 @@
                   (shell/sh
                    "/bin/bash" "-c"
                    (str (format "exec kubectl --kubeconfig %s " (.getAbsolutePath kube-file))
-                        (format "-n %s " (or namespace "default"))
+                        (when namespace
+                              (format "-n %s " namespace))
                         (when container-name
                           (format "-c %s " container-name))
                         (format "exec -i %s -- %s" resource-name exec-cmd))
