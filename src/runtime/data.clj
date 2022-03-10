@@ -1,9 +1,10 @@
 (ns runtime.data
   (:require [clojure.java.shell :as shell]
-            [version.version :refer [app-version git-revision]]))
+            [version.version :refer [app-version git-revision]]
+            [environ.core :refer [env]]))
 
-(def envs {:tags (System/getenv "TAGS")})
-(def jwk-url (System/getenv "JWK_URL"))
+(def envs {:tags (env :tags)})
+(def jwk-url (env :jwk_url))
 
 (defn- sh [& args]
   (try

@@ -2,12 +2,14 @@
   (:require [logger.timbre :as log]
             [mount.core :refer [defstate]]
             [buddy.core.codecs.base64 :as b64]
+            [environ.core :refer [env]]
             [protojure.grpc.client.providers.http2 :as grpc.http2]
             [backoff.time :as backoff])
   (:import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient))
 
-(def tags (System/getenv "TAGS"))
-(def token (System/getenv "TOKEN"))
+
+(def tags (env :tags))
+(def token (env :token))
 (def api-url (or (System/getenv "API_URL") "https://api.runops.io"))
 (def grpc-url (or (System/getenv "GRPC_URL") "https://api.runops.io:8443"))
 (def disable-aws-secret-manager (= (System/getenv "AWS_SECRET_MANAGER") "false"))

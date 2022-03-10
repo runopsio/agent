@@ -7,14 +7,19 @@
             [agent.agent :as agent]
             [io.grpc.Agent.client :as agent-client]
             [backoff.time :as backoff]
+            [agent.types :as types]
+            [runtime.thread-dump :refer [find-thread-by-name]]
             [agent.errors :refer [err->>]]
             [tracer.honeycomb :refer [with-tracing
                                       with-tracing-end]]
             [runtime.data :refer [runtime-data]]))
 
 (def boot-atom (atom nil))
-
+(def proc-chan-atom (atom {}))
 (def queue-info (atom #{}))
+
+(def rpc-in-channel (atom nil))
+(def rpc-out-channel (atom nil))
 
 (defn queue-length []
   (count @queue-info))
@@ -38,30 +43,91 @@
           (with-tracing #(vector % nil) [root-key] map-attrs)
           (with-tracing-end)))
 
-(defn process-message [task]
-  (if (:keep-alive-task task)
-    (log/info "gRPC noop - received keep alive command from server")
-    (do
-      (add-root-span :agent-receive-task {:agent.org (:org task)
-                                          :agent.task_id (:id task)
-                                          :agent.queue_lenght (queue-length)
-                                          :task-id (:id task)})
-      (async/thread
-        (try
-          (queue-info-add (:id task))
-          (log/info {:queue (queue-length) :queued-tasks @queue-info :task-id (:id task)}
-                    "starting running task async.")
-          (agent/run-task (assoc task
-                                 :mode :grpc
-                                 :jwk-verify (:jwk-verify runtime-data)
-                                 :queue-lenght (queue-length)))
-          (queue-info-remove (:id task))
-          (log/info {:queue (queue-length) :queued-tasks @queue-info :task-id (:id task)}
-                    "finished running task async.")
-          (catch Throwable e
-            (queue-info-remove (:id task))
-            (log/error e {:task-id (:id task) :queue (queue-length)} "failed to run task.")
-            (sentry-task-logger e task "failed to process message")))))))
+(defn process-message [proc-chan task]
+  (add-root-span :agent-receive-task {:agent.org (:org task)
+                                      :agent.task_id (:id task)
+                                      :agent.queue_lenght (queue-length)
+                                      :task-id (:id task)})
+  (async/thread
+    (try
+      (-> (Thread/currentThread)
+          (.setName (str "task:" (:id task "id"))))
+      (queue-info-add (:id task))
+      (log/info {:queue (queue-length) :queued-tasks @queue-info :task-id (:id task)}
+                "starting running task async.")
+      (agent/run-task (assoc task
+                             :mode :grpc
+                             :jwk-verify (:jwk-verify runtime-data)
+                             :queue-lenght (queue-length)
+                             :proc-chan proc-chan))
+      (queue-info-remove (:id task))
+      (reset! proc-chan-atom (dissoc @proc-chan-atom (keyword (:id task))))
+      (log/info {:queue (queue-length) :queued-tasks @queue-info :task-id (:id task)}
+                "finished running task async.")
+      (catch Throwable e
+        (queue-info-remove (:id task))
+        (reset! proc-chan-atom (dissoc @proc-chan-atom (keyword (:id task))))
+        (log/error e {:task-id (:id task) :queue (queue-length)} "failed to run task.")
+        (sentry-task-logger e task "failed to process message")))))
+
+(defn send-proc-command
+  "Sends a proc command to a shell.sh/sh if the task-id exists in the atom.
+  The accepted commands are :status or :kill"
+  [task-id proc-cmd]
+  (let [proc-chan (get @proc-chan-atom (keyword task-id))
+        _ (when (:in proc-chan)
+            (async/>!! (:in proc-chan) proc-cmd))
+        proc-status (when (:out proc-chan)
+                      (async/<!! (:out proc-chan)))
+        [process-state process-pid] [(:alive proc-status) (get proc-status :pid -1)]
+        process-state (case process-state
+                        "true" "RUNNING"
+                        "false" "DEAD"
+                        "UNKNOWN")]
+    {:process-state process-state
+     :process-pid process-pid}))
+
+(defn process-task [spec]
+  (let [task (types/json->clj types/TaskExecutionRequest spec)
+        task-id-keyword (keyword (:id task))
+        proc-chan {:in (async/chan 1)
+                   :out (async/chan 1)}
+        _ (swap! proc-chan-atom assoc task-id-keyword proc-chan)]
+    (process-message proc-chan task)))
+
+(defn process-task-status-request [spec]
+  (let [req (types/json->clj types/TaskStatusRequest spec)
+        proc-status (send-proc-command (:id req) :status)
+        thread-info (find-thread-by-name (str "task:" (:id req)))
+        task-status (conj thread-info
+                          proc-status)]
+    ;; set timeout to send response to api
+    (async/>!! @rpc-out-channel {:kind "KillTaskResponse"
+                                 :spec (types/clj->json
+                                        types/TaskStatusResponse
+                                        task-status)})))
+
+;; TODO: make thread stops after killing the process
+(defn process-kill-task-request [spec]
+  (let [req (types/json->clj types/KillTaskRequest spec)
+        proc-status (send-proc-command (:id req) :kill)
+        thread-info (find-thread-by-name (str "task:" (:id req)))
+        _ (println thread-info)
+        task-status (conj thread-info
+                          proc-status)]
+    ;; set timeout to send response to api
+    (async/>!! @rpc-out-channel {:kind "KillTaskResponse"
+                                 :spec (types/clj->json
+                                        types/KillTaskResponse
+                                        task-status)})))
+
+(defn process-rpc [{:keys [kind spec]}]
+  (case kind
+    "TaskExecutionRequest" (process-task spec)
+    "KeepAliveRequest" (log/info "gRPC noop - received keep alive command from server")
+    "TaskStatusRequest" (process-task-status-request spec)
+    "KillTaskRequest" (process-kill-task-request spec)
+    (throw (Exception. (format "Kind %s not supported!" kind)))))
 
 (defn when-closed [future-to-watch callback]
   (future (callback
@@ -123,7 +189,8 @@
               (clients/disconnect-grpc)
               (grpc-connect-subscribe {:delay backoff-subscribe-ms}))
           (if msg
-            (process-message (assoc msg
+            (process-message nil
+                             (assoc msg
                                     :well-known-jwks well-known-jwks
                                     :dlp-fields dlp-fields
                                     :org (get (mount/args) :org "")))
