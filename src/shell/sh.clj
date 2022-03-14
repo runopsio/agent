@@ -118,7 +118,6 @@
     (with-open [stdout (.getInputStream proc)
                 stderr (.getErrorStream proc)]
       (when (and (:in proc-chan) (:out proc-chan))
-        ;; TODO: test to see if this thread is destroyed
         (async/thread
           (loop []
             (when-some [chan-cmd (async/<!! (:in proc-chan))]

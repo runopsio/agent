@@ -68,7 +68,11 @@
       (catch InterruptedException _
         (queue-info-remove (:id task))
         (reset! proc-chan-atom (dissoc @proc-chan-atom (keyword (:id task))))
-        (log/info {:task-id (:id task) :queue (queue-length)} "task interrupted."))
+        (log/info {:task-id (:id task) :queue (queue-length)} "task interrupted.")
+        (add-root-span :agent-task-interrupted {:agent.org (:org task)
+                                                :agent.task_id (:id task)
+                                                :agent.queue_lenght (queue-length)
+                                                :task-id (:id task)}))
       (catch Throwable e
         (queue-info-remove (:id task))
         (reset! proc-chan-atom (dissoc @proc-chan-atom (keyword (:id task))))
@@ -108,7 +112,6 @@
                         types/TaskStatusNotFound)
         task-status (conj thread-info
                           proc-status)]
-    ;; set timeout to send response to api
     (async/>!! @rpc-out-channel {:kind "TaskStatusResponse"
                                  :spec (types/clj->json
                                         types/TaskStatusResponse
@@ -123,7 +126,6 @@
                         types/TaskStatusNotFound)
         task-status (conj thread-info
                           proc-status)]
-    ;; set timeout to send response to api
     (async/>!! @rpc-out-channel {:kind "KillTaskResponse"
                                  :spec (types/clj->json
                                         types/KillTaskResponse
