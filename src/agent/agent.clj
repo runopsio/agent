@@ -180,7 +180,7 @@
                    "/bin/bash" "-c"
                    (str (format "exec kubectl --kubeconfig %s " (.getAbsolutePath kube-file))
                         (when namespace
-                              (format "-n %s " namespace))
+                          (format "-n %s " namespace))
                         (when container-name
                           (format "-c %s " container-name))
                         (format "exec -i %s -- %s" resource-name exec-cmd))
@@ -590,8 +590,8 @@ fi")
         [(assoc task
                 :shell-stdout (:shell-stdout task)
                 :redacted true) nil])
-    (> (:shell-stdout-size task) 1000000)
-    (do (log/info "skipping redact, reached max size (1MB) for redacting task output")
+    (> (:shell-stdout-size task) 50000000)
+    (do (log/info "skipping redact, reached max size (50MB) for redacting task output")
         [(assoc task
                 :shell-stdout (:shell-stdout task)
                 :redacted true) nil])
