@@ -1,6 +1,7 @@
 ;; {}
 
 {:lint-as {mount.core/defstate clojure.core/def}
+ :skip-comments true
  :linters {:unresolved-namespace {:report-duplicates true
                                   :exclude [clojure.string
                                             clojure.walk]}

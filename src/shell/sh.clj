@@ -1,6 +1,6 @@
 (ns shell.sh
-  (:require [clojure.core.async :as async])
-  (:use [clojure.java.io :only (as-file copy)])
+  (:require [clojure.core.async :as async]
+            [clojure.java.io :refer [as-file copy]])
   (:import (java.io ByteArrayOutputStream StringWriter)
            (java.nio.charset Charset)))
 
@@ -20,16 +20,6 @@
   [env & forms]
   `(binding [*sh-env* ~env]
      ~@forms))
-
-(defn- aconcat
-  "Concatenates arrays of given type."
-  [type & xs]
-  (let [target (make-array type (apply + (map count xs)))]
-    (loop [i 0 idx 0]
-      (when-let [a (nth xs i nil)]
-        (System/arraycopy a 0 target idx (count a))
-        (recur (inc i) (+ idx (count a)))))
-    target))
 
 (defn- parse-args
   [args]
