@@ -47,7 +47,7 @@
    :process-state (s/enum "RUNNING" "DEAD" "UNKNOWN")
    :process-pid s/Int
    ;; https://docs.oracle.com/javase/7/docs/api/java/lang/Thread.State.html
-   :state (s/enum "NEW" "RUNNABLE" "BLOCKED" "WAITING" "TIMED_WAITING" "TERMINATED")
+   :state (s/enum "NEW" "RUNNABLE" "BLOCKED" "WAITING" "TIMED_WAITING" "TERMINATED" "NOT_FOUND")
    :suspended s/Bool
    :native s/Bool
    :priority s/Int
@@ -65,6 +65,24 @@
 (s/defschema KillTaskResponse
   "agent -> api"
   TaskStatusResponse)
+
+(def TaskStatusNotFound
+  {:id -1
+   :name ""
+   :block -1
+   :daemon false
+   :process-state "UNKNOWN"
+   :process-pid -1
+   :state "NOT_FOUND"
+   :suspended false
+   :native false
+   :priority -1
+   :stack ""
+   :wait -1
+   :locked-synchronizers ""
+   :user -1
+   :cpu -1
+   :lock nil})
 
 (defn json->clj [kind spec]
   (s/validate

@@ -1,6 +1,7 @@
 (ns agent.secrets
   (:require [logger.timbre :as log]
             [logger.sentry :refer [sentry-task-logger sentry-logger]]
+            [environ.core :refer [env]]
             [clojure.data.json :as json]
             [clj-http.client :as client]
             [agent.clients :as clients]
@@ -60,12 +61,11 @@
               get-env-secrets))
 
 (defn get-env-secrets [task]
-  (let [secret-path (:secret-path task)
-        secret-json (or (System/getenv (format "%s" secret-path))
-                        (System/getenv (format "%s" (clojure.string/upper-case secret-path)))
-                        (System/getenv (format "%s" (clojure.string/replace secret-path "-" "_")))
-                        (System/getenv (format "%s" (clojure.string/upper-case
-                                                     (clojure.string/replace secret-path "-" "_")))))]
+  (let [secret-path (-> (:secret-path task)
+                        clojure.string/lower-case
+                        (clojure.string/replace "_" "-")
+                        keyword)
+        secret-json (env secret-path)]
     (if secret-json
       (err/err->> secret-json
                   json->map

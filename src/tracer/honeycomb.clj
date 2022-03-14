@@ -29,8 +29,7 @@
          safe-end
          set-span-attributes
          set-span-attribute
-         tracer
-         call-traced-fn)
+         tracer)
 
 (defn with-tracing
   "A closure that execute functions with tracing on honeycomb.
@@ -81,10 +80,10 @@
                                           (.with root-span)))
                           (.startSpan))
                       map-attrs)
-         fn-result (call-traced-fn traced-fn
-                                   (assoc task :tracing-spans
-                                          (merge (:tracing-spans task)
-                                                 {parent-key parent-span})))
+         fn-result (traced-fn
+                    (assoc task :tracing-spans
+                           (merge (:tracing-spans task)
+                                  {parent-key parent-span})))
          task-err (second fn-result)
          ;; the traced-fn could output sometimes [nil <task>] which
          ;; breaks the pattern of [nil <err>],
@@ -113,8 +112,8 @@
                               :agent.task_id (:id task)})
                            {:agent.version app-version
                             :agent.revision git-revision}))
-         fn-result (call-traced-fn traced-fn (assoc task :tracing-spans
-                                                    {root-key root-span}))
+         fn-result (traced-fn (assoc task :tracing-spans
+                                     {root-key root-span}))
          task-err (second fn-result)
          ;; the traced-fn could output sometimes [nil <task>] which
          ;; breaks the pattern of [nil <err>],
@@ -131,13 +130,6 @@
      (when (some? task-err)
        ((with-tracing-end) task))
      fn-result)))
-
-(defn- call-traced-fn [traced-fn task]
-  (try
-    (traced-fn task)
-    (catch Exception e
-      (log/error e "failed processing task")
-      [nil (format "failed in processing, err=%s" (.getMessage e))])))
 
 (defn- safe-end [span]
   (try (.end span) (catch Exception _))

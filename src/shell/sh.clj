@@ -121,7 +121,7 @@
         ;; TODO: test to see if this thread is destroyed
         (async/thread
           (loop []
-            (let [chan-cmd (async/<!! (:in proc-chan))]
+            (when-some [chan-cmd (async/<!! (:in proc-chan))]
               (case chan-cmd
                 :status (async/>!! (:out proc-chan) {:alive (str (.isAlive proc))
                                                      :pid (.pid proc)})

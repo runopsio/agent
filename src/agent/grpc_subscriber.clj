@@ -8,7 +8,8 @@
             [io.grpc.Agent.client :as agent-client]
             [backoff.time :as backoff]
             [agent.types :as types]
-            [runtime.thread-dump :refer [find-thread-by-name]]
+            [runtime.thread-dump :refer [find-thread-by-name
+                                         stop-thread-by-name]]
             [agent.errors :refer [err->>]]
             [tracer.honeycomb :refer [with-tracing
                                       with-tracing-end]]
@@ -64,6 +65,10 @@
       (reset! proc-chan-atom (dissoc @proc-chan-atom (keyword (:id task))))
       (log/info {:queue (queue-length) :queued-tasks @queue-info :task-id (:id task)}
                 "finished running task async.")
+      (catch InterruptedException _
+        (queue-info-remove (:id task))
+        (reset! proc-chan-atom (dissoc @proc-chan-atom (keyword (:id task))))
+        (log/info {:task-id (:id task) :queue (queue-length)} "task interrupted."))
       (catch Throwable e
         (queue-info-remove (:id task))
         (reset! proc-chan-atom (dissoc @proc-chan-atom (keyword (:id task))))
@@ -78,7 +83,8 @@
         _ (when (:in proc-chan)
             (async/>!! (:in proc-chan) proc-cmd))
         proc-status (when (:out proc-chan)
-                      (async/<!! (:out proc-chan)))
+                      (-> (async/alts!! [(:out proc-chan) (async/timeout 2000)])
+                          first))
         [process-state process-pid] [(:alive proc-status) (get proc-status :pid -1)]
         process-state (case process-state
                         "true" "RUNNING"
@@ -98,21 +104,23 @@
 (defn process-task-status-request [spec]
   (let [req (types/json->clj types/TaskStatusRequest spec)
         proc-status (send-proc-command (:id req) :status)
-        thread-info (find-thread-by-name (str "task:" (:id req)))
+        thread-info (or (find-thread-by-name (str "task:" (:id req)))
+                        types/TaskStatusNotFound)
         task-status (conj thread-info
                           proc-status)]
     ;; set timeout to send response to api
-    (async/>!! @rpc-out-channel {:kind "KillTaskResponse"
+    (async/>!! @rpc-out-channel {:kind "TaskStatusResponse"
                                  :spec (types/clj->json
                                         types/TaskStatusResponse
                                         task-status)})))
 
-;; TODO: make thread stops after killing the process
 (defn process-kill-task-request [spec]
   (let [req (types/json->clj types/KillTaskRequest spec)
         proc-status (send-proc-command (:id req) :kill)
-        thread-info (find-thread-by-name (str "task:" (:id req)))
-        _ (println thread-info)
+        task-id (str "task:" (:id req))
+        _ (stop-thread-by-name task-id)
+        thread-info (or (find-thread-by-name task-id)
+                        types/TaskStatusNotFound)
         task-status (conj thread-info
                           proc-status)]
     ;; set timeout to send response to api
