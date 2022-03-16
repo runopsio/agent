@@ -19,6 +19,14 @@ config:
   #   access_key_id: AKIA...
   #   secret_access_key: ob6uwqnca8ksa+asl...
   #   region: us-east-1
+  # set this values if you're using HashiCorp Vault as the secret manager for targets,
+  # it will fetch secrets from the vault and inject in the runtime of a running task
+  # https://runops.io/docs/concepts/targets/#secret_provider
+  # vault:
+  #   auth_method: 'kubernetes-account-service'
+  #   addr: 'http://server.vault-dev:8200'
+  #   role: 'mysqldev'
+  #   auth_path: '/v1/auth/kubernetes/login'
   # enforce validation of tasks verifying session authentication
   # https://runops.io/docs/agent/configuration/#enhanced-agent-security
   # jwk_url: 'https://runops.us.auth0.com/.well-known/jwks.json'
