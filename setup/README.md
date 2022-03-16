@@ -4,6 +4,8 @@ Explain how to install the runops agent in several environments
 
 ## Kubernetes - Helm 3
 
+See [values.yaml](../charts/values.yaml) for the full list of options.
+
 ### Requisites
 
 - [Install helm 3](https://helm.sh/docs/intro/install/)
