@@ -11,7 +11,8 @@
             [agent.errors :refer [err->>]]
             [tracer.honeycomb :refer [with-tracing
                                       with-tracing-end]]
-            [runtime.data :refer [runtime-data]]))
+            [runtime.data :refer [runtime-data]]
+            [clojure.data.json :as json]))
 
 (def boot-atom (atom nil))
 
@@ -73,32 +74,37 @@
                                                          (.getMessage e)
                                                          (:message (ex-data (.getCause e))))))))))
 
-(def subscription-channels (atom {}))
+(def send-channel-atom (atom {}))
 
-(defn subscription-channel [subscription-name]
-  (@subscription-channels subscription-name))
+(defn send-channel []
+  (@send-channel-atom "send-channel"))
 
-(defn subscribe! [subscription-name subscription-chan]
-  (swap! subscription-channels assoc subscription-name subscription-chan))
+(defn send-channel! [subscription-chan]
+  (swap! send-channel-atom assoc "send-channel" subscription-chan))
 
-(defn input-signal [input-chan]
-  (async/take! input-chan
-               (fn [_]
-                 (log/info (format "received message from input ch" )))))
+(defn json->map [str]
+  (try
+    (-> str json/read-str clojure.walk/keywordize-keys)
+    (catch Exception e
+      (log/error e "failed to convert json to map"))))
 
-(defn output-signal [out-chan]
-  (async/take! out-chan
-               (fn [_]
-                 (log/info (format "received message from output ch" )))))
+(defn listen-ch [receive-ch]
+  (async/go-loop []
+    (let [result (async/<!! receive-ch)
+          type (:type result)
+          body (json->map (:body result))]
+      (log/info {:type type :body body} "received message from api")
+      (Thread/sleep 5000)
+      (async/put! (send-channel) {:type "task-cancel-response" :body "{}"})
+      (recur))))
 
 (defn connect []
-  (let [input-ch (async/chan 1)
-        output-ch (async/chan 1)
-        _ (subscribe! "dan" output-ch)
-        _ (input-signal input-ch)
-        _ (output-signal output-ch)
-        subscription-promise (agent-client/AgentConnection (clients/grpc-client) input-ch output-ch)]
-    (async/put! input-ch {:type "subscribe-request" :body "{}"})
+  (let [send-ch (async/chan 1)
+        receive-ch (async/chan 1)
+        _ (send-channel! send-ch)
+        _ (listen-ch receive-ch)
+        subscription-promise (agent-client/AgentConnection (clients/grpc-client) send-ch receive-ch)]
+    (async/put! (send-channel) {:type "subscribe-request" :body "{\"status\":\"success\"}"})
     (when-closed subscription-promise #(when % (log/warn {:queue (queue-length)} (format "subscription finished: %s" %))))))
 
 (defn subscribe []

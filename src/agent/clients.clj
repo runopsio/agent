@@ -34,7 +34,8 @@
   (try
     (deref (grpc.http2/connect {:uri grpc-url
                                 :ssl grpc-ssl
-                                :metadata ["Authorization" (str "Bearer " token)]
+                                :metadata {"Authorization" (str "Bearer " token)
+                                           "tags" tags}
                                 :idle-timeout -1}) 3000 nil)
     (catch Exception e
       (log/warn (format "Could not start gRPC client with error: %s" e)))))
