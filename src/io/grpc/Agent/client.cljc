@@ -14,6 +14,16 @@
 ; GRPC Client Implementation
 ;-----------------------------------------------------------------------------
 
+(defn AgentConnection
+  ([client params reply] (AgentConnection client {} params reply))
+  ([client metadata params reply]
+  (let [desc {:service "io.grpc.Agent"
+              :method  "AgentConnection"
+              :input   {:f io.grpc/new-Message :ch params}
+              :output  {:f io.grpc/pb->Message :ch reply}
+              :metadata metadata}]
+    (grpc/invoke client desc))))
+
 (defn Event
   ([client params] (Event client {} params))
   ([client metadata params]

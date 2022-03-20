@@ -1,6 +1,7 @@
 (ns agent.grpc-subscriber
   (:require [logger.timbre :as log]
             [logger.sentry :refer [sentry-task-logger]]
+            [io.grpc :refer [new-Message pb->Message]]
             [mount.core :as mount]
             [clojure.core.async :as async]
             [agent.clients :as clients]
@@ -72,6 +73,34 @@
                                                          (.getMessage e)
                                                          (:message (ex-data (.getCause e))))))))))
 
+(def subscription-channels (atom {}))
+
+(defn subscription-channel [subscription-name]
+  (@subscription-channels subscription-name))
+
+(defn subscribe! [subscription-name subscription-chan]
+  (swap! subscription-channels assoc subscription-name subscription-chan))
+
+(defn input-signal [input-chan]
+  (async/take! input-chan
+               (fn [_]
+                 (log/info (format "received message from input ch" )))))
+
+(defn output-signal [out-chan]
+  (async/take! out-chan
+               (fn [_]
+                 (log/info (format "received message from output ch" )))))
+
+(defn connect []
+  (let [input-ch (async/chan 1)
+        output-ch (async/chan 1)
+        _ (subscribe! "dan" output-ch)
+        _ (input-signal input-ch)
+        _ (output-signal output-ch)
+        subscription-promise (agent-client/AgentConnection (clients/grpc-client) input-ch output-ch)]
+    (async/put! input-ch {:type "subscribe-request" :body "{}"})
+    (when-closed subscription-promise #(when % (log/warn {:queue (queue-length)} (format "subscription finished: %s" %))))))
+
 (defn subscribe []
   (subscription-channel! (async/chan 1))
   (let [proto-body {:tags (:tags runtime-data)
@@ -87,14 +116,14 @@
 (defn grpc-connect-subscribe [data]
   (if (clients/grpc-client-alive?)
     (do (log/info {:queue (queue-length)} "gRPC subscribing new channel...")
-        (subscribe)
+        (connect)
         ;; backoff if the grpc connection is alive, it will prevent exhausting resources when
         ;; the connection is alive and the server or load balancer are returning errors
         (Thread/sleep 5000))
     (do (log/info {:queue (queue-length)} "gRPC client disconnected, creating new connection...")
         (clients/connect-grpc data)
         (when (clients/grpc-client-alive?)
-          (subscribe)))))
+          (connect)))))
 
 (defn listen-subscription
   [{:keys [well-known-jwks dlp-fields channel-timeout-ms backoff-subscribe-ms]}]
