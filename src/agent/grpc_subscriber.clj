@@ -15,12 +15,8 @@
                                       with-tracing-end]]
             [runtime.data :refer [runtime-data]]))
 
-(def boot-atom (atom nil))
 (def proc-chan-atom (atom {}))
 (def queue-info (atom #{}))
-
-(def rpc-in-channel (atom nil))
-(def rpc-out-channel (atom nil))
 
 (defn queue-length []
   (count @queue-info))
@@ -30,14 +26,6 @@
 
 (defn queue-info-remove [task-id]
   (swap! queue-info (fn [queue] (set (remove #{task-id} queue)))))
-
-(def grpc-channels (atom {}))
-
-(defn subscription-channel []
-  (@grpc-channels :subscription-channel))
-
-(defn subscription-channel! [chan]
-  (swap! grpc-channels assoc :subscription-channel chan))
 
 (defn add-root-span [root-key map-attrs]
   (err->> {}
@@ -97,49 +85,52 @@
     {:process-state process-state
      :process-pid process-pid}))
 
-(defn process-task [spec]
-  (let [task (types/json->clj types/TaskExecutionRequest spec)
+(defn process-task [runtime body]
+  (let [task (types/json->clj types/TaskExecutionRequest body)
         task-id-keyword (keyword (:id task))
         proc-chan {:in (async/chan 1)
                    :out (async/chan 1)}
         _ (swap! proc-chan-atom assoc task-id-keyword proc-chan)]
-    (process-message proc-chan task)))
+    (process-message proc-chan (conj task runtime))))
 
-(defn process-task-status-request [spec]
-  (let [req (types/json->clj types/TaskStatusRequest spec)
+(defn process-task-status-request [body send-ch]
+  (let [req (types/json->clj types/TaskStatusRequest body)
         proc-status (send-proc-command (:id req) :status)
         thread-info (or (find-thread-by-name (str "task:" (:id req)))
                         types/TaskStatusNotFound)
         task-status (conj thread-info
-                          proc-status)]
-    (async/>!! @rpc-out-channel {:kind "TaskStatusResponse"
-                                 :spec (types/clj->json
-                                        types/TaskStatusResponse
-                                        task-status)})))
+                          proc-status
+                          {:task-id (:id req)})]
+    (async/>!! send-ch {:type "task-status-response"
+                        :body (types/clj->json
+                               types/TaskStatusResponse
+                               task-status)})))
 
-(defn process-kill-task-request [spec]
-  (let [req (types/json->clj types/KillTaskRequest spec)
+(defn process-kill-task-request [body send-ch]
+  (let [req (types/json->clj types/KillTaskRequest body)
         proc-status (send-proc-command (:id req) :kill)
         task-id (str "task:" (:id req))
         _ (stop-thread-by-name task-id)
         thread-info (or (find-thread-by-name task-id)
                         types/TaskStatusNotFound)
         task-status (conj thread-info
-                          proc-status)]
-    (async/>!! @rpc-out-channel {:kind "KillTaskResponse"
-                                 :spec (types/clj->json
-                                        types/KillTaskResponse
-                                        task-status)})))
+                          proc-status
+                          {:task-id (:id req)})]
+    (async/>!! send-ch {:type "kill-task-response"
+                        :body (types/clj->json
+                               types/KillTaskResponse
+                               task-status)})))
 
-(defn process-rpc [{:keys [kind spec]}]
-  (case kind
-    "TaskExecutionRequest" (process-task spec)
-    "KeepAliveRequest" (log/info "gRPC noop - received keep alive command from server")
-    "TaskStatusRequest" (process-task-status-request spec)
-    "KillTaskRequest" (process-kill-task-request spec)
-    (throw (Exception. (format "Kind %s not supported!" kind)))))
+(defn process-rpc [{:keys [type body runtime send-ch]}]
+  (log/info (format "processing rpc type=%s" type))
+  (case type
+    "task-execution-request" (process-task runtime body)
+    "keep-alive-request" (log/info "gRPC noop - received keep alive command from server")
+    "task-status-request" (process-task-status-request body send-ch)
+    "kill-task-request" (process-kill-task-request body send-ch)
+    (throw (Exception. (format "Type %s not supported!" type)))))
 
-(defn when-closed [future-to-watch callback]
+(defn- when-closed [future-to-watch callback]
   (future (callback
            (try
              @future-to-watch
@@ -148,63 +139,60 @@
                                                          (.getMessage e)
                                                          (:message (ex-data (.getCause e))))))))))
 
-(defn subscribe []
-  (subscription-channel! (async/chan 1))
-  (let [proto-body {:tags (:tags runtime-data)
-                    :feature-keep-alive true
-                    :version (:app-version runtime-data)
-                    :revision (:git-revision runtime-data)
-                    :machine-id (:machine-id runtime-data)
-                    :hostname (:hostname runtime-data)
-                    :boot @boot-atom}
-        subscription-promise (agent-client/Subscribe (clients/grpc-client) proto-body (subscription-channel))]
-    (when-closed subscription-promise #(when % (log/warn {:queue (queue-length)} (format "subscription finished: %s" %))))))
+(defn- subscribe [conn agent-boot?]
+  (let [metadata {"tags" (:tags runtime-data)
+                  "agent-version" (:app-version runtime-data)
+                  "agent-revision" (:git-revision runtime-data)
+                  "agent-machine-id" (:machine-id runtime-data)
+                  "agent-hostname" (:hostname runtime-data)
+                  "agent-boot" (str agent-boot?)}
+        receive-ch (async/chan 1)
+        send-ch (async/chan 1)
+        _ (log/info "initializing subscribe ...")
+        subscription-promise (agent-client/AgentConnection conn metadata send-ch receive-ch)]
+    (when-closed subscription-promise #(when % (log/warn {:queue (queue-length)}
+                                                         (format "subscription finished: %s" %))))
+    [receive-ch send-ch]))
 
-(defn grpc-connect-subscribe [data]
-  (if (clients/grpc-client-alive?)
-    (do (log/info {:queue (queue-length)} "gRPC subscribing new channel...")
-        (subscribe)
-        ;; backoff if the grpc connection is alive, it will prevent exhausting resources when
-        ;; the connection is alive and the server or load balancer are returning errors
-        (Thread/sleep 5000))
-    (do (log/info {:queue (queue-length)} "gRPC client disconnected, creating new connection...")
-        (clients/connect-grpc data)
-        (when (clients/grpc-client-alive?)
-          (subscribe)))))
-
-(defn listen-subscription
+(defn run-controller
   [{:keys [well-known-jwks dlp-fields channel-timeout-ms backoff-subscribe-ms]}]
-  (reset! boot-atom true)
-  (grpc-connect-subscribe {})
-  (reset! boot-atom false)
   (add-root-span :agent-boot {:agent.org (get (mount/args) :org "")})
+  (log/info "Initialing control plane ...")
+  (loop [n 1 agent-boot? true
+         subscribe-channels nil]
 
-  (loop [n 1]
-    (log/info {:grpc-client-alive (clients/grpc-client-alive?)}
-              (format "[%s] gRPC subscription controller" n))
-    (if (clients/grpc-client-alive?)
-      (let [out-chan (subscription-channel)
+    (let [conn (clients/grpc-conn)
+          _ (log/info "obtained connection with success")
+          [receive-ch send-ch] (if subscribe-channels
+                                 subscribe-channels
+                                 (subscribe conn agent-boot?))
+          _ (log/info "subscribed with sucess, waiting for new tasks ...")
             ;; the timeout must only triggers if the connection is stuck,
             ;; in normal situations, this must always be greater
             ;; than the idle timeout of the gRPC load balancer.
-            timeout-chan (async/timeout (backoff/min->ms 6))
-            [msg chan] (async/alts!! [out-chan timeout-chan])]
+          timeout-chan (async/timeout (backoff/min->ms 6))
+          [msg chan] (async/alts!! [receive-ch timeout-chan])]
+      (try
         (if (= timeout-chan chan)
-          (do (log/info {:queue (queue-length)}
-                        (format "reached channel timeout [%sm], restarting gRPC connection"
-                                (backoff/ms->min channel-timeout-ms)))
-              ;; always disconnect first, otherwise it will not
-              ;; unsubscribe properly from the server, returning
-              ;; an error informing it's already subscribed.
-              (clients/disconnect-grpc)
-              (grpc-connect-subscribe {:delay backoff-subscribe-ms}))
+          (do
+            (log/info {:queue (queue-length)}
+                      (format "reached channel timeout [%sm], restarting gRPC connection"
+                              (backoff/ms->min channel-timeout-ms)))
+              ;; TODO: disconnect on exception!
+              ;; TODO: close channels??
+            (throw (Exception. (format "reached channel timeout [%sm], restarting gRPC connection"
+                                       (backoff/ms->min channel-timeout-ms)))))
           (if msg
-            (process-message nil
-                             (assoc msg
-                                    :well-known-jwks well-known-jwks
+            (process-rpc {:type (:type msg)
+                          :body (:body msg)
+                          :send-ch send-ch
+                          :runtime {:well-known-jwks well-known-jwks
                                     :dlp-fields dlp-fields
-                                    :org (get (mount/args) :org "")))
+                                    :org (get (mount/args) :org "")}})
             (do (log/warn {:queue (queue-length)} "gRPC server has closed the subscription channel...")
-                (grpc-connect-subscribe {:delay backoff-subscribe-ms})))))
-      (grpc-connect-subscribe {:delay backoff-subscribe-ms}))
-    (recur (inc n))))
+                ;; TODO: sleep for a while to subscribe again!
+                )))
+        (catch Exception e
+          (log/warn (format "got error processing call: %s" (.getMessage e)))))
+      (recur (inc n) false
+             [receive-ch send-ch]))))

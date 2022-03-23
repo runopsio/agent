@@ -1,6 +1,12 @@
 syntax = "proto3";
 package io.grpc;
 
+message Message {
+  string type = 1;
+  string body = 2;
+}
+
+// legacy
 message SubscriberRequest {
   string tags = 1;
   string version = 2;
@@ -67,6 +73,9 @@ message LogsResponse {
 message HealthRequest{}
 
 service Agent {
+  rpc AgentConnection (stream Message) returns (stream Message);
+
+  // legacy
   rpc Event(EventRequest) returns (RuntimeConfigurationResponse);
   rpc Subscribe (SubscriberRequest) returns (stream TaskResponse);
   rpc Webhook (LogsRequest) returns (LogsResponse);

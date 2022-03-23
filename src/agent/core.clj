@@ -7,7 +7,6 @@
             [environ.core :refer [env]]
             [logger.timbre-json :as timbre-json]
             [taoensso.timbre.appenders.core :as appenders]
-            [clojure.core.async :as async]
             [agent.http-poller :as http]
             [agent.grpc-subscriber :as grpc]
             [backoff.time :as backoff]
@@ -22,7 +21,7 @@
               :appenders {:println (appenders/println-appender {:stream :auto})}})
 
 ;; comment it for non-json logging
-;; (merge-config! {:output-fn timbre-json/output-fn})
+(merge-config! {:output-fn timbre-json/output-fn})
 (handle-uncaught-jvm-exceptions!)
 
 (defn -main [& _]
@@ -45,74 +44,9 @@
                       backoff-grpc-connect-subscribe
                       backoff-http-poll
                       (count (:dlp-fields runtime-config))))
-    (future (grpc/listen-subscription {:well-known-jwks well-known-jwks
-                                       :dlp-fields dlp-fields
-                                       :channel-timeout-ms grpc-channel-timeout
-                                       :backoff-subscribe-ms backoff-grpc-connect-subscribe}))
+    (future
+      (grpc/run-controller {:well-known-jwks well-known-jwks
+                            :dlp-fields dlp-fields
+                            :channel-timeout-ms grpc-channel-timeout
+                            :backoff-subscribe-ms backoff-grpc-connect-subscribe}))
     (http/poll dlp-fields backoff-http-poll)))
-
-(defn fake-server
-  "A fake implementation of a bi directional streaming used for testing purposes."
-  []
-  (when @grpc/rpc-in-channel (async/close! @grpc/rpc-in-channel))
-  (when @grpc/rpc-out-channel (async/close! @grpc/rpc-out-channel))
-  (reset! grpc/rpc-in-channel (async/chan 1))
-  (reset! grpc/rpc-out-channel (async/chan 1))
-  (async/thread
-    (loop []
-      (when-some [object (async/<!! @grpc/rpc-in-channel)]
-        (log/info (format "processing rpc-in message, object=%s" object))
-        (try
-          (grpc/process-rpc {:kind (:kind object) :spec (:spec object)})
-          (catch Exception e
-            (println (.getMessage e))))
-        (recur)))
-    (log/info "end of rpc-in thread"))
-  (async/thread
-    (loop []
-      (when-some [object (async/<!! @grpc/rpc-out-channel)]
-        (log/info (format "received response from agent, object=%s" object))
-        (recur)))
-    (log/info "end of rpc-out thread")))
-
-(comment
-  ;; add .lein-env in the base of the agent directory before starting a REPL
-  ;; {:token "<runops-agent-token>" :tags "local" :debug_output "true"}
-  (fake-server)
-  (-> (mount/only #{#'tracer.honeycomb/honeycomb-sdk})
-      mount/start)
-
-  (async/>!! @grpc/rpc-in-channel {:kind "KeepAliveRequest"
-                                   :spec nil})
-  ;; make sure to use an id from a test org!!
-  ;; retrieve the logs running: runops tasks logs --id 39529
-  (async/>!! @grpc/rpc-in-channel {:kind "TaskExecutionRequest"
-                                   :spec (agent.types/clj->json
-                                          agent.types/TaskExecutionRequest
-                                          {:id "39529"
-                                           :type "python"
-                                           :script "import os,time\ntime.sleep(40)\nprint('end')"
-                                           :config nil
-                                           :redact "none"})})
-
-  ;; add the keys {(...) :secret-path :pg-config :pg-config "<FLAT_JSON>"} in .lein-env
-  (async/>!! @grpc/rpc-in-channel {:kind "TaskExecutionRequest"
-                                   :spec (agent.types/clj->json
-                                          agent.types/TaskExecutionRequest
-                                          {:id "39529"
-                                           :type "postgres"
-                                           :script "SELECT pg_sleep(30); SELECT * FROM accounts"
-                                           :secret-provider "env-var"
-                                           :secret-path "PG_CONFIG"
-                                           :config nil
-                                           :redact "none"})})
-
-  ;; (async/close! (get-in @grpc/proc-chan-atom [:39529 :in]))
-  (async/>!! @grpc/rpc-in-channel {:kind "TaskStatusRequest"
-                                   :spec (agent.types/clj->json
-                                          agent.types/TaskStatusRequest
-                                          {:id "39529"})})
-  (async/>!! @grpc/rpc-in-channel {:kind "KillTaskRequest"
-                                   :spec (agent.types/clj->json
-                                          agent.types/KillTaskRequest
-                                          {:id "39529"})}))

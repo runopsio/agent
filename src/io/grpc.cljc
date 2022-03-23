@@ -36,6 +36,9 @@
 (declare cis->LogsResponse)
 (declare ecis->LogsResponse)
 (declare new-LogsResponse)
+(declare cis->Message)
+(declare ecis->Message)
+(declare new-Message)
 (declare cis->ConnectionConfig)
 (declare ecis->ConnectionConfig)
 (declare new-ConnectionConfig)
@@ -392,6 +395,57 @@
   (cis->LogsResponse (serdes.stream/new-cis input)))
 
 (def ^:protojure.protobuf.any/record LogsResponse-meta {:type "io.grpc.LogsResponse" :decoder pb->LogsResponse})
+
+;-----------------------------------------------------------------------------
+; Message
+;-----------------------------------------------------------------------------
+(defrecord Message-record [type body]
+  pb/Writer
+  (serialize [this os]
+    (serdes.core/write-String 1  {:optimize true} (:type this) os)
+    (serdes.core/write-String 2  {:optimize true} (:body this) os))
+  pb/TypeReflection
+  (gettype [this]
+    "io.grpc.Message"))
+
+(s/def :io.grpc.Message/type string?)
+(s/def :io.grpc.Message/body string?)
+(s/def ::Message-spec (s/keys :opt-un [:io.grpc.Message/type :io.grpc.Message/body ]))
+(def Message-defaults {:type "" :body "" })
+
+(defn cis->Message
+  "CodedInputStream to Message"
+  [is]
+  (->> (tag-map Message-defaults
+         (fn [tag index]
+             (case index
+               1 [:type (serdes.core/cis->String is)]
+               2 [:body (serdes.core/cis->String is)]
+
+               [index (serdes.core/cis->undefined tag is)]))
+         is)
+        (map->Message-record)))
+
+(defn ecis->Message
+  "Embedded CodedInputStream to Message"
+  [is]
+  (serdes.core/cis->embedded cis->Message is))
+
+(defn new-Message
+  "Creates a new instance from a map, similar to map->Message except that
+  it properly accounts for nested messages, when applicable.
+  "
+  [init]
+  {:pre [(if (s/valid? ::Message-spec init) true (throw (ex-info "Invalid input" (s/explain-data ::Message-spec init))))]}
+  (-> (merge Message-defaults init)
+      (map->Message-record)))
+
+(defn pb->Message
+  "Protobuf to Message"
+  [input]
+  (cis->Message (serdes.stream/new-cis input)))
+
+(def ^:protojure.protobuf.any/record Message-meta {:type "io.grpc.Message" :decoder pb->Message})
 
 ;-----------------------------------------------------------------------------
 ; ConnectionConfig

@@ -1,8 +1,7 @@
 (ns tracer.honeycomb
   (:require [logger.timbre :as log]
             [mount.core :refer [defstate] :as mount]
-            [version.version :refer [app-version git-revision]]
-            [agent.errors :as err])
+            [version.version :refer [app-version git-revision]])
   (:import io.opentelemetry.context.Context
            io.honeycomb.opentelemetry.HoneycombSdk$Builder
            io.honeycomb.opentelemetry.sdk.trace.samplers.DeterministicTraceSampler))

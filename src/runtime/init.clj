@@ -12,17 +12,6 @@
 (def ^:private send-event-timeout-ms (backoff/sec->ms 15))
 (def ^:private backoff-max-attempts-ms (backoff/min->ms 5))
 
-(defn- grpc-client
-  "run until it finds a grpc client connection"
-  []
-  (cond
-    (= (clients/grpc-client-alive?) true) (clients/grpc-client)
-    :else
-    (do
-      (log/warn "Couldn't find any gRPC client alive, (re)connecting.")
-      (clients/connect-grpc {})
-      (grpc-client))))
-
 (defn- send-event [client data]
   (try
     (deref (agent-client/Event client {:runtime-data data})
@@ -43,7 +32,7 @@
           (Thread/sleep backoff-max-attempts-ms)
           (fetch-agent-config))
       (let [runtime-data (zipmap (map name (keys runtime-data)) (map str (vals runtime-data)))
-            client (grpc-client)
+            client (clients/grpc-conn)
             runtime-config (send-event client runtime-data)]
         (if-not (empty? runtime-config)
           (do
