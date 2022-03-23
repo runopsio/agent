@@ -8,7 +8,7 @@
         locked-synchronizers (if (clojure.string/blank? locked-synchronizers) ""
                                  locked-synchronizers)]
     {:name (.getThreadName ti)
-     :id (.getThreadId ti)
+     :thread-id (.getThreadId ti)
      :priority (.getPriority ti)
      :state (.toString (.getThreadState ti))
      :native (.isInNative ti)

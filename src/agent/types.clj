@@ -33,8 +33,8 @@
 
 (s/defschema TaskStatusResponse
   "agent -> api"
-  {:task-id s/Int
-   :id s/Int
+  {:id s/Int
+   :thread-id s/Int
    :name s/Str
    :block s/Int
    :daemon s/Bool

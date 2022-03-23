@@ -470,6 +470,7 @@ fi")
      (log/info (crypto/verify-sig (get task :token "") (:well-known-jwks task))
                "user validated with success!")
      [task nil]
+     (catch InterruptedException e (throw e))
      (catch Exception e
        (let [jwk-kids (->> (get-in task [:well-known-jwks :keys])
                            (map :kid)
@@ -514,6 +515,7 @@ fi")
       (if (http-client/success? response)
         [(assoc task :pre-signed-upload-url (:pre_signed_upload_url body)) nil]
         [nil "task not found"]))
+    (catch InterruptedException e (throw e))
     (catch Exception e
       (log/error (format "failed to lock task id [%s] with error: %s" (:id task) e))
       (sentry-task-logger e task "failed to lock task")
@@ -540,6 +542,7 @@ fi")
                            (when-let  [secret-val (get secrets (keyword v))]
                              {k secret-val}))
                          secret-mapping))) nil])
+    (catch InterruptedException e (throw e))
     (catch Exception e
       (let [msg-err (format "failed reading secret-mapping config. task=%s, mapping=%s, err=%s"
                             (:id task) (:secret-mapping task) (.getMessage e))]
@@ -566,6 +569,7 @@ fi")
         [(assoc task :runtime-args {:ecs-task-arn ecs-task-arn}
                 ;; allow using inside a custom command, e.g. --task [[ECS_TASK_ID]]
                 :secrets (conj (:secrets task) {:ECS_TASK_ID ecs-task-arn})) nil])
+      (catch InterruptedException e (throw e))
       (catch Throwable e
         (log/error e "failed to obtain ECS Task ID")
         (sentry-task-logger e task "failed to obtain ECS Task ID")
@@ -599,6 +603,7 @@ fi")
               :shell-stderr shell-stderr
               :shell-exit-code shell-exit-code
               :shell-stdout-size (count shell-stdout)) nil])
+    (catch InterruptedException e (throw e))
     (catch Exception e
       (log/error (format "shell command failed for task id %s with error: %s" (:id task) e))
       (sentry-task-logger e task "shell command failed")
@@ -634,6 +639,7 @@ fi")
                 :shell-stdout redacted-str
                 :overview-metrics overview-metrics
                 :redacted true) nil])
+      (catch InterruptedException e (throw e))
       (catch Throwable e
         (log/warn e {:task-id (:id task)} "failed to redact output from shell command")
         (sentry-task-logger e task "failed to redact output from shell command")

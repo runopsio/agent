@@ -26,7 +26,13 @@
 
 (defn -main [& _]
   (log/info {:git-revision git-revision :tags tags} "Starting agent")
-  (let [runtime-config (init/fetch-agent-config)
+  (let [;; runtime-config (init/fetch-agent-config)
+        runtime-config {:org "sandromll"
+                        :hc-dataset "runops"
+                        :hc-api-key "e8f9fb62e7ff1ece4d8020df4cff5954"
+                        :sentry-dsn "https://7bee01d63c85471188c9157e62c79771@o919346.ingest.sentry.io/5863449"
+                        :sentry-env "local"
+                        :connection-config {}}
         _ (-> (mount/with-args runtime-config) mount/start)
         well-known-jwks (init/fetch-jwks-pubkeys)
         grpc-channel-timeout (get-in runtime-config [:connection-config :grpc-connect-channel-timeout])

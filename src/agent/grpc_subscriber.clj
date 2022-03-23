@@ -56,7 +56,7 @@
       (catch InterruptedException _
         (queue-info-remove (:id task))
         (reset! proc-chan-atom (dissoc @proc-chan-atom (keyword (:id task))))
-        (log/info {:task-id (:id task) :queue (queue-length)} "task interrupted.")
+        (log/warn {:task-id (:id task) :queue (queue-length)} "task interrupted.")
         (add-root-span :agent-task-interrupted {:agent.org (:org task)
                                                 :agent.task_id (:id task)
                                                 :agent.queue_lenght (queue-length)
@@ -100,7 +100,7 @@
                         types/TaskStatusNotFound)
         task-status (conj thread-info
                           proc-status
-                          {:task-id (:id req)})]
+                          {:id (:id req)})]
     (async/>!! send-ch {:type "task-status-response"
                         :body (types/clj->json
                                types/TaskStatusResponse
@@ -108,14 +108,15 @@
 
 (defn process-kill-task-request [body send-ch]
   (let [req (types/json->clj types/KillTaskRequest body)
-        proc-status (send-proc-command (:id req) :kill)
         task-id (str "task:" (:id req))
         _ (stop-thread-by-name task-id)
+        proc-status (send-proc-command (:id req) :kill)
         thread-info (or (find-thread-by-name task-id)
                         types/TaskStatusNotFound)
         task-status (conj thread-info
                           proc-status
-                          {:task-id (:id req)})]
+                          {:id (:id req)})]
+    (log/info (format "sending kill-task-response to channel, body=%s" task-status))
     (async/>!! send-ch {:type "kill-task-response"
                         :body (types/clj->json
                                types/KillTaskResponse
@@ -163,8 +164,8 @@
 
     (let [conn (clients/grpc-conn)
           _ (log/info "obtained connection with success")
-          [receive-ch send-ch] (if subscribe-channels
-                                 subscribe-channels
+          [receive-ch send-ch] (if-some [c subscribe-channels]
+                                 c
                                  (subscribe conn agent-boot?))
           _ (log/info "subscribed with sucess, waiting for new tasks ...")
             ;; the timeout must only triggers if the connection is stuck,
@@ -190,8 +191,10 @@
                                     :dlp-fields dlp-fields
                                     :org (get (mount/args) :org "")}})
             (do (log/warn {:queue (queue-length)} "gRPC server has closed the subscription channel...")
-                ;; TODO: sleep for a while to subscribe again!
-                )))
+                ;; TODO: need to close channel here!
+                (async/close! receive-ch)
+                (async/close! send-ch)
+                (Thread/sleep backoff-subscribe-ms))))
         (catch Exception e
           (log/warn (format "got error processing call: %s" (.getMessage e)))))
       (recur (inc n) false
