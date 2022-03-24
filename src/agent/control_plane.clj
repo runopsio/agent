@@ -1,7 +1,6 @@
-(ns agent.grpc-subscriber
+(ns agent.control-plane
   (:require [logger.timbre :as log]
             [logger.sentry :refer [sentry-task-logger]]
-            [mount.core :as mount]
             [clojure.core.async :as async]
             [agent.clients :as clients]
             [agent.agent :as agent]
@@ -56,7 +55,8 @@
       (catch InterruptedException _
         (queue-info-remove (:id task))
         (reset! proc-chan-atom (dissoc @proc-chan-atom (keyword (:id task))))
-        (log/warn {:task-id (:id task) :queue (queue-length)} "task interrupted.")
+        (log/warn {:task-id (:id task) :queue (queue-length)}
+                  "the task was interrupted")
         (add-root-span :agent-task-interrupted {:agent.org (:org task)
                                                 :agent.task_id (:id task)
                                                 :agent.queue_lenght (queue-length)
@@ -149,53 +149,50 @@
                   "agent-boot" (str agent-boot?)}
         receive-ch (async/chan 1)
         send-ch (async/chan 1)
-        _ (log/info "initializing subscribe ...")
+        _ (log/info "subscribing to gRPC API ...")
         subscription-promise (agent-client/AgentConnection conn metadata send-ch receive-ch)]
-    (when-closed subscription-promise #(when % (log/warn {:queue (queue-length)}
-                                                         (format "subscription finished: %s" %))))
+    (when-closed subscription-promise #(when %
+                                         (log/warn {:queue (queue-length)}
+                                                   (format "subscription finished: %s" %))
+                                         (async/close! receive-ch)
+                                         (async/close! send-ch)))
     [receive-ch send-ch]))
 
 (defn run-controller
-  [{:keys [well-known-jwks dlp-fields channel-timeout-ms backoff-subscribe-ms]}]
-  (add-root-span :agent-boot {:agent.org (get (mount/args) :org "")})
-  (log/info "Initialing control plane ...")
-  (loop [n 1 agent-boot? true
-         subscribe-channels nil]
-
+  [{:keys [org well-known-jwks dlp-fields backoff-subscribe-ms]}]
+  (log/info "initializing control plane ...")
+  (loop [n 1 agent-boot? true receive-ch nil send-ch nil]
     (let [conn (clients/grpc-conn)
-          _ (log/info "obtained connection with success")
-          [receive-ch send-ch] (if-some [c subscribe-channels]
-                                 c
+          [receive-ch send-ch] (if receive-ch
+                                 [receive-ch send-ch]
                                  (subscribe conn agent-boot?))
-          _ (log/info "subscribed with sucess, waiting for new tasks ...")
-            ;; the timeout must only triggers if the connection is stuck,
-            ;; in normal situations, this must always be greater
-            ;; than the idle timeout of the gRPC load balancer.
+          ;; the timeout must only triggers if the connection is stuck,
+          ;; in normal situations, this must always be greater
+          ;; than the idle timeout of the gRPC load balancer.
           timeout-chan (async/timeout (backoff/min->ms 6))
-          [msg chan] (async/alts!! [receive-ch timeout-chan])]
+          [msg chan] (async/alts!! [receive-ch timeout-chan])
+          [receive-ch send-ch] (cond
+                                 (= timeout-chan chan)
+                                 (do (log/info "reached channel timeout, re-connecting ...")
+                                     (try (.disconnect conn)
+                                          (async/close! receive-ch)
+                                          (async/close! send-ch)
+                                          (catch Exception _))
+                                     [nil nil])
+                                 (nil? msg)
+                                 (do (log/info "ended subscription channel")
+                                     (Thread/sleep backoff-subscribe-ms)
+                                     [nil nil])
+                                 :else [receive-ch send-ch])]
       (try
-        (if (= timeout-chan chan)
-          (do
-            (log/info {:queue (queue-length)}
-                      (format "reached channel timeout [%sm], restarting gRPC connection"
-                              (backoff/ms->min channel-timeout-ms)))
-              ;; TODO: disconnect on exception!
-              ;; TODO: close channels??
-            (throw (Exception. (format "reached channel timeout [%sm], restarting gRPC connection"
-                                       (backoff/ms->min channel-timeout-ms)))))
-          (if msg
-            (process-rpc {:type (:type msg)
-                          :body (:body msg)
-                          :send-ch send-ch
-                          :runtime {:well-known-jwks well-known-jwks
-                                    :dlp-fields dlp-fields
-                                    :org (get (mount/args) :org "")}})
-            (do (log/warn {:queue (queue-length)} "gRPC server has closed the subscription channel...")
-                ;; TODO: need to close channel here!
-                (async/close! receive-ch)
-                (async/close! send-ch)
-                (Thread/sleep backoff-subscribe-ms))))
+        (when msg
+          (process-rpc {:type (:type msg)
+                        :body (:body msg)
+                        :send-ch send-ch
+                        :runtime {:well-known-jwks well-known-jwks
+                                  :dlp-fields dlp-fields
+                                  :org org}}))
         (catch Exception e
-          (log/warn (format "got error processing call: %s" (.getMessage e)))))
-      (recur (inc n) false
-             [receive-ch send-ch]))))
+          (log/error e "got error when processing rpc message")
+          (sentry-task-logger e {:mode "grpc"} (format "failed processing rpc message=%s" msg))))
+      (recur (inc n) false receive-ch send-ch))))

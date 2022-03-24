@@ -7,13 +7,13 @@
        (clojure.string/join "\n" (.getStackTrace err))))
 
 (defn output-fn [data]
-  (let [{:keys [level ?err #_vargs msg_ ?ns-str ?file
+  (let [{:keys [level ?err #_vargs msg_
                 timestamp_ ?line]} data
         thread-name (.getName (Thread/currentThread))
         output-data (apply array-map [:timestamp (force timestamp_)
                                       :level (clojure.string/upper-case level)
                                       :thread thread-name
-                                      :ns (or ?ns-str ?file)
+                                      ;; :ns (or ?ns-str ?file)
                                       :line ?line
                                       :version app-version
                                       :context (:context data)

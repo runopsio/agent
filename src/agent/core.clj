@@ -1,6 +1,7 @@
 (ns agent.core
   (:require [agent.clients :as _]
             [version.version :refer [git-revision]]
+            [logger.sentry :refer [sentry-task-logger]]
             [logger.timbre :as log]
             [taoensso.timbre :refer [merge-config! set-config!
                                      handle-uncaught-jvm-exceptions!]]
@@ -8,7 +9,7 @@
             [logger.timbre-json :as timbre-json]
             [taoensso.timbre.appenders.core :as appenders]
             [agent.http-poller :as http]
-            [agent.grpc-subscriber :as grpc]
+            [agent.control-plane :as cp]
             [backoff.time :as backoff]
             [runtime.init :as init]
             [mount.core :as mount]
@@ -26,33 +27,29 @@
 
 (defn -main [& _]
   (log/info {:git-revision git-revision :tags tags} "Starting agent")
-  (let [;; runtime-config (init/fetch-agent-config)
-        runtime-config {:org "sandromll"
-                        :hc-dataset "runops"
-                        :hc-api-key "e8f9fb62e7ff1ece4d8020df4cff5954"
-                        :sentry-dsn "https://7bee01d63c85471188c9157e62c79771@o919346.ingest.sentry.io/5863449"
-                        :sentry-env "local"
-                        :connection-config {}}
+  (let [runtime-config (init/fetch-agent-config)
         _ (-> (mount/with-args runtime-config) mount/start)
         well-known-jwks (init/fetch-jwks-pubkeys)
-        grpc-channel-timeout (get-in runtime-config [:connection-config :grpc-connect-channel-timeout])
         backoff-grpc-connect-subscribe (get-in runtime-config [:connection-config :backoff-grpc-connect-subscribe])
         backoff-http-poll (get-in runtime-config [:connection-config :backoff-http-poll])
-        grpc-channel-timeout (backoff/parse-default grpc-channel-timeout (backoff/min->ms 5))
         backoff-grpc-connect-subscribe (backoff/parse-default backoff-grpc-connect-subscribe (backoff/sec->ms 5))
         backoff-http-poll (backoff/parse-default backoff-http-poll (backoff/sec->ms 15))
         dlp-fields (:dlp-fields runtime-config)
         dlp-fields (if (> (count dlp-fields) 0) dlp-fields dlp/default-info-types)]
-    (log/info (format (str "Agent config id=[%s] loaded with success. Backoff grpc-channel-timeout=[%s]"
+    (log/info (format (str "Agent config id=[%s] loaded with success. Backoff"
                            " grpc-conn-subscribe=[%s] http-poll=[%s] total-dlp-fields=[%s]")
                       (:id runtime-config)
-                      grpc-channel-timeout
                       backoff-grpc-connect-subscribe
                       backoff-http-poll
                       (count (:dlp-fields runtime-config))))
     (future
-      (grpc/run-controller {:well-known-jwks well-known-jwks
+      (try
+        (cp/run-controller {:org (get (mount/args) :org "")
+                            :well-known-jwks well-known-jwks
                             :dlp-fields dlp-fields
-                            :channel-timeout-ms grpc-channel-timeout
-                            :backoff-subscribe-ms backoff-grpc-connect-subscribe}))
+                            :backoff-subscribe-ms backoff-grpc-connect-subscribe})
+        (catch Throwable e
+          (log/error e "failed running control plane controller, shuting down process!")
+          (sentry-task-logger e {:mode "grpc"} "failed running control plane controller")
+          (System/exit 1))))
     (http/poll dlp-fields backoff-http-poll)))

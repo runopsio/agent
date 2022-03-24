@@ -8,6 +8,7 @@
             [agent.secrets :as secrets]
             [amazonica.aws.ecs :as ecs]
             [clj-http.client :as http-client]
+            [buddy.core.codecs.base64 :as b64]
             [environ.core :refer [env]]
             [clojure.data.json :as json]
             [crypto.sign :as crypto]
@@ -18,6 +19,9 @@
             [tracer.honeycomb :refer [with-tracing
                                       with-tracing-end]])
   (:import java.io.File))
+
+(defn decode-base64 [str]
+  (String. (b64/decode str)))
 
 (defn- filter-optional-shell-args
   "Returns a vector of arguments filtering for non empty values.
@@ -56,7 +60,7 @@
 
 (def sh-k8s
   (fn [task] (let [kube-file (File/createTempFile "task" (str (:id task)))
-                   _ (spit kube-file (clients/decode-base64 (:KUBE_CONFIG_DATA (:secrets task))))
+                   _ (spit kube-file (decode-base64 (:KUBE_CONFIG_DATA (:secrets task))))
                    script-items (clojure.string/split (:script task) #" ")
                    command-items (apply conj ["kubectl" "--kubeconfig" (.getAbsolutePath kube-file)]
                                         script-items)
@@ -173,7 +177,7 @@
 (def sh-k8s-apply
   (fn [task] (let [kube-file (File/createTempFile "task" (str (:id task)))
                    apply-file (File/createTempFile "apply" (str (:id task)))
-                   _ (spit kube-file (clients/decode-base64 (:KUBE_CONFIG_DATA (:secrets task))))
+                   _ (spit kube-file (decode-base64 (:KUBE_CONFIG_DATA (:secrets task))))
                    _ (spit apply-file (:script task))
                    command-items ["kubectl" "--kubeconfig" (.getAbsolutePath kube-file)
                                   "apply" "-f" (.getAbsolutePath apply-file)]
@@ -185,7 +189,7 @@
 
 (defn sh-k8s-exec [task]
   (let [kube-file (File/createTempFile "task" (str (:id task)))
-        _ (spit kube-file (clients/decode-base64 (:KUBE_CONFIG_DATA (:secrets task))))
+        _ (spit kube-file (decode-base64 (:KUBE_CONFIG_DATA (:secrets task))))
         namespace (get-in task [:secrets :NAMESPACE])
         exec-cmd (get-in task [:secrets :K8S_EXEC_COMMAND])
         resource-name (get-in task [:secrets :K8S_EXEC_RESOURCE])
@@ -222,7 +226,7 @@
 ;; DEPRECATED in flavor of sh-k8s-exec
 (def sh-rails-console-k8s
   (fn [task] (let [kube-file (File/createTempFile "task" (str (:id task)))
-                   _ (spit kube-file (clients/decode-base64 (:KUBE_CONFIG_DATA (:secrets task))))
+                   _ (spit kube-file (decode-base64 (:KUBE_CONFIG_DATA (:secrets task))))
                    command-items ["kubectl"
                                   "--kubeconfig" (.getAbsolutePath kube-file)
                                   "exec" "-n" (:NAMESPACE (:secrets task))

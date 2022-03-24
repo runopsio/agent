@@ -1,7 +1,6 @@
 (ns agent.clients
   (:require [logger.timbre :as log]
             [mount.core :refer [defstate]]
-            [buddy.core.codecs.base64 :as b64]
             [environ.core :refer [env]]
             [protojure.grpc.client.providers.http2 :as grpc.http2]
             [backoff.time :as backoff])
@@ -15,9 +14,6 @@
 (def disable-aws-secret-manager (= (System/getenv "AWS_SECRET_MANAGER") "false"))
 (def grpc-ssl (Boolean/valueOf (or (System/getenv "GRPC_SSL") "true")))
 
-(defn decode-base64 [str]
-  (String. (b64/decode str)))
-
 ; gRPC client
 (def grpc-client-atom (atom nil))
 (defn- grpc-client
@@ -30,22 +26,17 @@
       conn)))
 (defn- grpc-client! [c] (reset! grpc-client-atom c))
 
-;; (defn grpc-client-alive?
-;;   "Whether or not there a stateful client and it is NOT_CLOSED"
-;;   []
-;;   (and (agent.clients/grpc-client)
-;;        (not (.isClosed (:session (.context (agent.clients/grpc-client)))))))
-
 (defn grpc-conn
   ([] (grpc-conn 1))
   ([attempt]
    (try
      (let [conn (grpc-client)
            conn (if-not conn
-                  (deref (grpc.http2/connect {:uri grpc-url
-                                              :ssl grpc-ssl
-                                              :metadata ["Authorization" (str "Bearer " token)]
-                                              :idle-timeout -1}) (backoff/sec->ms 5) nil)
+                  (deref (grpc.http2/connect
+                          {:uri grpc-url
+                           :ssl grpc-ssl
+                           :metadata ["Authorization" (str "Bearer " token)]
+                           :idle-timeout -1}) (backoff/sec->ms 5) nil)
                   conn)
            _ (when (nil? conn) (throw (Exception. "timeout getting client connection")))]
        (grpc-client! conn))
