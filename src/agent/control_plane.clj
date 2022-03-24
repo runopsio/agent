@@ -93,6 +93,10 @@
         _ (swap! proc-chan-atom assoc task-id-keyword proc-chan)]
     (process-message proc-chan (conj task runtime))))
 
+(defn process-keep-alive-request [send-ch]
+  (log/info "received keep alive request from server")
+  (async/>!! send-ch {:type "keep-alive-response"}))
+
 (defn process-task-status-request [body send-ch]
   (let [req (types/json->clj types/TaskStatusRequest body)
         proc-status (send-proc-command (:id req) :status)
@@ -126,7 +130,7 @@
   (log/info (format "processing rpc type=%s" type))
   (case type
     "task-execution-request" (process-task runtime body)
-    "keep-alive-request" (log/info "gRPC noop - received keep alive command from server")
+    "keep-alive-request" (process-keep-alive-request send-ch)
     "task-status-request" (process-task-status-request body send-ch)
     "kill-task-request" (process-kill-task-request body send-ch)
     (throw (Exception. (format "Type %s not supported!" type)))))
@@ -147,8 +151,7 @@
                   "agent-machine-id" (:machine-id runtime-data)
                   "agent-hostname" (:hostname runtime-data)
                   "agent-boot" (str agent-boot?)}
-        receive-ch (async/chan 1)
-        send-ch (async/chan 1)
+        [receive-ch send-ch] [(async/chan 1) (async/chan 1)]
         _ (log/info "subscribing to gRPC API ...")
         subscription-promise (agent-client/AgentConnection conn metadata send-ch receive-ch)]
     (when-closed subscription-promise #(when %
@@ -166,9 +169,7 @@
           [receive-ch send-ch] (if receive-ch
                                  [receive-ch send-ch]
                                  (subscribe conn agent-boot?))
-          ;; the timeout must only triggers if the connection is stuck,
-          ;; in normal situations, this must always be greater
-          ;; than the idle timeout of the gRPC load balancer.
+          ;; must be greater than the load balancer idle timeout
           timeout-chan (async/timeout (backoff/min->ms 6))
           [msg chan] (async/alts!! [receive-ch timeout-chan])
           [receive-ch send-ch] (cond
