@@ -34,7 +34,7 @@
   (cond
     (nil? arg) nil
     (map? arg) (into-array String (map (fn [[k v]] (str (name k) "=" v)) arg))
-    true arg))
+    :else arg))
 
 (defn- stream-to-bytes
   [in]
