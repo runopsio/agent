@@ -1,14 +1,9 @@
 syntax = "proto3";
 package io.grpc;
 
-message SubscriberRequest {
-  string tags = 1;
-  string version = 2;
-  string revision = 3;
-  string hostname = 4;
-  string machine_id = 5;
-  bool boot = 6;
-  bool feature_keep_alive = 7;
+message Message {
+  string type = 1;
+  string body = 2;
 }
 
 message EventRequest {
@@ -33,42 +28,9 @@ message RuntimeConfigurationResponse {
   repeated string dlp_fields = 9;
 }
 
-message TaskResponse {
-  int32 id = 1;
-  string type = 2;
-  string script = 3;
-  string secret_provider = 4;
-  string secret_path = 5;
-  string secret_mapping = 6;
-  string config = 7;
-  string x_b3_trace_id = 8;
-  string x_b3_parent_span_id = 9;
-  string custom_command = 10;
-  string token = 11;
-  bool keep_alive_task = 12;
-  string redact = 13;
-  string pre_signed_upload_url = 14;
-  string user_email = 15;
-  string target = 16;
-  string description = 17;
-}
-
-message LogsRequest {
-  int32 id = 1;
-  string status = 2;
-  string logs = 3;
-  bool redacted = 4;
-}
-
-message LogsResponse {
-  string message = 1;
-}
-
-message HealthRequest{}
-
 service Agent {
+  rpc AgentConnection (stream Message) returns (stream Message);
+
+  // legacy
   rpc Event(EventRequest) returns (RuntimeConfigurationResponse);
-  rpc Subscribe (SubscriberRequest) returns (stream TaskResponse);
-  rpc Webhook (LogsRequest) returns (LogsResponse);
-  rpc Health (HealthRequest) returns (HealthRequest);
 }

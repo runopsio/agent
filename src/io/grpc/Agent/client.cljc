@@ -14,6 +14,16 @@
 ; GRPC Client Implementation
 ;-----------------------------------------------------------------------------
 
+(defn AgentConnection
+  ([client params reply] (AgentConnection client {} params reply))
+  ([client metadata params reply]
+  (let [desc {:service "io.grpc.Agent"
+              :method  "AgentConnection"
+              :input   {:f io.grpc/new-Message :ch params}
+              :output  {:f io.grpc/pb->Message :ch reply}
+              :metadata metadata}]
+    (grpc/invoke client desc))))
+
 (defn Event
   ([client params] (Event client {} params))
   ([client metadata params]
@@ -23,44 +33,6 @@
               :method  "Event"
               :input   {:f io.grpc/new-EventRequest :ch input}
               :output  {:f io.grpc/pb->RuntimeConfigurationResponse :ch output}
-              :metadata metadata}]
-    (-> (send-unary-params input params)
-        (p/then (fn [_] (invoke-unary client desc output)))))))
-
-(defn Subscribe
-  ([client params reply] (Subscribe client {} params reply))
-  ([client metadata params reply]
-  (let [input (async/chan 1)
-        desc {:service "io.grpc.Agent"
-              :method  "Subscribe"
-              :input   {:f io.grpc/new-SubscriberRequest :ch input}
-              :output  {:f io.grpc/pb->TaskResponse :ch reply}
-              :metadata metadata}]
-    (-> (send-unary-params input params)
-        (p/then (fn [_] (grpc/invoke client desc)))))))
-
-(defn Webhook
-  ([client params] (Webhook client {} params))
-  ([client metadata params]
-  (let [input (async/chan 1)
-        output (async/chan 1)
-        desc {:service "io.grpc.Agent"
-              :method  "Webhook"
-              :input   {:f io.grpc/new-LogsRequest :ch input}
-              :output  {:f io.grpc/pb->LogsResponse :ch output}
-              :metadata metadata}]
-    (-> (send-unary-params input params)
-        (p/then (fn [_] (invoke-unary client desc output)))))))
-
-(defn Health
-  ([client params] (Health client {} params))
-  ([client metadata params]
-  (let [input (async/chan 1)
-        output (async/chan 1)
-        desc {:service "io.grpc.Agent"
-              :method  "Health"
-              :input   {:f io.grpc/new-HealthRequest :ch input}
-              :output  {:f io.grpc/pb->HealthRequest :ch output}
               :metadata metadata}]
     (-> (send-unary-params input params)
         (p/then (fn [_] (invoke-unary client desc output)))))))

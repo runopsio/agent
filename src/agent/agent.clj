@@ -2,12 +2,14 @@
   (:require [logger.timbre :as log]
             [logger.sentry :refer [sentry-task-logger]]
             [agent.errors :as err]
-            [clojure.java.shell :as shell]
+            [shell.sh :as shell]
             [clojure.java.io :refer [delete-file]]
             [agent.clients :as clients]
             [agent.secrets :as secrets]
             [amazonica.aws.ecs :as ecs]
             [clj-http.client :as http-client]
+            [buddy.core.codecs.base64 :as b64]
+            [environ.core :refer [env]]
             [clojure.data.json :as json]
             [crypto.sign :as crypto]
             [backoff.time :as backoff]
@@ -17,6 +19,9 @@
             [tracer.honeycomb :refer [with-tracing
                                       with-tracing-end]])
   (:import java.io.File))
+
+(defn decode-base64 [str]
+  (String. (b64/decode str)))
 
 (defn- filter-optional-shell-args
   "Returns a vector of arguments filtering for non empty values.
@@ -35,8 +40,9 @@
 (def sh-bash
   (fn [task] (shell/sh "gosu" "runops" "bash"
                        :in (:script task)
+                       :proc-chan (:proc-chan task)
                        :env (assoc (clojure.walk/stringify-keys (:secrets task))
-                                   :PATH (System/getenv "PATH")))))
+                                   :PATH (env :path)))))
 
 (def sh-hashicorp-vault
   (fn [task] (let [script-items (clojure.string/split (:script task) #" ")
@@ -48,23 +54,25 @@
                    command-items (conj command-items (format "-address=%s:%s"
                                                              (:VAULT_ADDR (:secrets task))
                                                              (str (or (:VAULT_PORT (:secrets task)) "8200"))))
-                   command-items (apply conj command-items [:env envs])
+                   command-items (apply conj command-items [:env envs :proc-chan (:proc-chan task)])
                    sh (apply shell/sh command-items)]
                sh)))
 
 (def sh-k8s
   (fn [task] (let [kube-file (File/createTempFile "task" (str (:id task)))
-                   _ (spit kube-file (clients/decode-base64 (:KUBE_CONFIG_DATA (:secrets task))))
+                   _ (spit kube-file (decode-base64 (:KUBE_CONFIG_DATA (:secrets task))))
                    script-items (clojure.string/split (:script task) #" ")
                    command-items (apply conj ["kubectl" "--kubeconfig" (.getAbsolutePath kube-file)]
                                         script-items)
+                   command-items (conj command-items [:proc-chan (:proc-chan task)])
                    sh (apply shell/sh command-items)]
                (.delete kube-file)
                sh)))
 
 (def sh-mongo
   (fn [task] (shell/sh "mongo" (:MONGO_CONNECTION_URI (:secrets task))
-                       :in (:script task))))
+                       :in (:script task)
+                       :proc-chan (:proc-chan task))))
 
 (def sh-mysql
   (fn [task] (shell/sh "mysql"
@@ -74,14 +82,16 @@
                        "-u" (:MYSQL_USER (:secrets task))
                        "-P" (str (or (:MYSQL_PORT (:secrets task)) "3306"))
                        :env {"MYSQL_PWD" (:MYSQL_PASS (:secrets task))}
-                       :in (:script task))))
+                       :in (:script task)
+                       :proc-chan (:proc-chan task))))
 
 (def sh-mysql-csv
   (fn [task] (let [outcome (sh-mysql task)]
                (if (= 0 (:exit outcome))
                  (shell/sh "sed"
                            (format "s/\\t/%s/g" (or (:FIELD_SEPARATOR (:secrets task)) ","))
-                           :in (:out outcome))
+                           :in (:out outcome)
+                           :proc-chan (:proc-chan task))
                  outcome))))
 
 (def sh-postgres
@@ -94,8 +104,9 @@
                        "-p" (str (or (:PG_PORT (:secrets task)) "5432"))
                        "-v" "ON_ERROR_STOP=1"
                        :env {"PGPASSWORD" (:PG_PASS (:secrets task))
-                             "PATH" (System/getenv "PATH")}
-                       :in (:script task))))
+                             "PATH" (env :path)}
+                       :in (:script task)
+                       :proc-chan (:proc-chan task))))
 
 (def sh-postgres-csv
   (fn [task] (shell/sh "psql"
@@ -107,8 +118,9 @@
                        "-p" (str (or (:PG_PORT (:secrets task)) "5432"))
                        "-v" "ON_ERROR_STOP=1"
                        :env {"PGPASSWORD" (:PG_PASS (:secrets task))
-                             "PATH" (System/getenv "PATH")}
-                       :in (:script task))))
+                             "PATH" (env :path)}
+                       :in (:script task)
+                       :proc-chan (:proc-chan task))))
 
 (defn sh-mssql [task]
   (let [secrets (:secrets task)
@@ -119,7 +131,8 @@
                            "-U" (:MSSQL_USER secrets)
                            "-P" (:MSSQL_PASS secrets)
                            "-d" (:MSSQL_DB secrets)
-                           "-Q" (:script task)]
+                           "-Q" (:script task)
+                           :proc-chan (:proc-chan task)]
                           (filter-optional-shell-args
                            {"-s" field-separator
                             "-h" (when field-separator? "-1")
@@ -129,14 +142,16 @@
   (fn [task] (shell/sh "python3"
                        :in (:script task)
                        :env (assoc (clojure.walk/stringify-keys (:secrets task))
-                                   :PATH (System/getenv "PATH")))))
+                                   :PATH (env :path))
+                       :proc-chan (:proc-chan task))))
 
 (defn sh-node [task]
   (shell/sh "node"
             :in (:script task)
             :env (assoc (clojure.walk/stringify-keys (:secrets task))
-                        :PATH (System/getenv "PATH")
-                        :NODE_PATH "/usr/local/lib/node_modules/")))
+                        :PATH (env :path)
+                        :NODE_PATH "/usr/local/lib/node_modules/")
+            :proc-chan (:proc-chan task)))
 
 (defn sh-elixir [task]
   (let [_ (shell/sh "gosu" "runops" "mix" "local.hex" "--if-missing" "--force")
@@ -145,24 +160,28 @@
         script-path (.getAbsolutePath script-file)
         output (shell/sh "gosu" "runops" "elixir" script-path
                          :env (assoc (clojure.walk/stringify-keys (:secrets task))
-                                     :PATH (System/getenv "PATH")
-                                     :HOME (System/getenv "HOME")))]
+                                     :PATH (env :path)
+                                     :HOME (env :home))
+                         :proc-chan (:proc-chan task))]
     (.delete script-file)
     output))
 
 (def sh-rails
-  (fn [task] (shell/sh "rails" (:script task))))
+  (fn [task] (shell/sh "rails" (:script task)
+                       :proc-chan (:proc-chan task))))
 
 (def sh-rails-console
-  (fn [task] (shell/sh "rails" "runner" (:script task))))
+  (fn [task] (shell/sh "rails" "runner" (:script task)
+                       :proc-chan (:proc-chan task))))
 
 (def sh-k8s-apply
   (fn [task] (let [kube-file (File/createTempFile "task" (str (:id task)))
                    apply-file (File/createTempFile "apply" (str (:id task)))
-                   _ (spit kube-file (clients/decode-base64 (:KUBE_CONFIG_DATA (:secrets task))))
+                   _ (spit kube-file (decode-base64 (:KUBE_CONFIG_DATA (:secrets task))))
                    _ (spit apply-file (:script task))
                    command-items ["kubectl" "--kubeconfig" (.getAbsolutePath kube-file)
                                   "apply" "-f" (.getAbsolutePath apply-file)]
+                   command-items (apply conj command-items [:proc-chan (:proc-chan task)])
                    sh (apply shell/sh command-items)]
                (.delete kube-file)
                (.delete apply-file)
@@ -170,7 +189,7 @@
 
 (defn sh-k8s-exec [task]
   (let [kube-file (File/createTempFile "task" (str (:id task)))
-        _ (spit kube-file (clients/decode-base64 (:KUBE_CONFIG_DATA (:secrets task))))
+        _ (spit kube-file (decode-base64 (:KUBE_CONFIG_DATA (:secrets task))))
         namespace (get-in task [:secrets :NAMESPACE])
         exec-cmd (get-in task [:secrets :K8S_EXEC_COMMAND])
         resource-name (get-in task [:secrets :K8S_EXEC_RESOURCE])
@@ -184,7 +203,8 @@
                         (when container-name
                           (format "-c %s " container-name))
                         (format "exec -i %s -- %s" resource-name exec-cmd))
-                   :in (:script task)))
+                   :in (:script task)
+                   :proc-chan (:proc-chan task)))
         parts (clojure.string/split (:script task) #" ")
         resource-name (first parts)
         script (clojure.string/join " " (rest parts))
@@ -192,6 +212,7 @@
                   outcome
                   (shell/sh
                    "/bin/bash"
+                   :proc-chan (:proc-chan task)
                    :in (str (format "exec kubectl --kubeconfig %s "
                                     (.getAbsolutePath kube-file))
                             (when namespace
@@ -205,12 +226,13 @@
 ;; DEPRECATED in flavor of sh-k8s-exec
 (def sh-rails-console-k8s
   (fn [task] (let [kube-file (File/createTempFile "task" (str (:id task)))
-                   _ (spit kube-file (clients/decode-base64 (:KUBE_CONFIG_DATA (:secrets task))))
+                   _ (spit kube-file (decode-base64 (:KUBE_CONFIG_DATA (:secrets task))))
                    command-items ["kubectl"
                                   "--kubeconfig" (.getAbsolutePath kube-file)
                                   "exec" "-n" (:NAMESPACE (:secrets task))
                                   (format "deploy/%s" (:DEPLOYMENT (:secrets task)))
                                   "--" "bundle" "exec" "rails" "runner" (:script task)]
+                   command-items (apply conj command-items [:proc-chan (:proc-chan task)])
                    sh (apply shell/sh command-items)]
                (.delete kube-file)
                sh)))
@@ -229,8 +251,9 @@
               "--task" (get-in task [:runtime-args :ecs-task-arn])
               "--container" (:ECS_CONTAINER secrets)
               "--command" command
-              :env {"PATH" (System/getenv "PATH")
-                    "HOME" (System/getenv "HOME") ;; required by unbuffer
+              :proc-chan (:proc-chan task)
+              :env {"PATH" (env :path)
+                    "HOME" (env :home) ;; required by unbuffer
                     "AWS_ACCESS_KEY_ID" (:ECS_AWS_ACCESS_KEY_ID secrets)
                     "AWS_SECRET_ACCESS_KEY" (:ECS_AWS_SECRET_ACCESS_KEY secrets)
                     "AWS_REGION" (:ECS_AWS_REGION secrets)})))
@@ -281,12 +304,14 @@ fi")
         _ (spit custom-command-file custom-command-script)
         outcome (if (true? (:stdin-input task))
                   (shell/sh "gosu" "runops" "bash" custom-command-file custom-command-stdin-file
-                            :env (merge {"PATH" (System/getenv "PATH")
-                                         "HOME" (System/getenv "HOME")}
+                            :proc-chan (:proc-chan task)
+                            :env (merge {"PATH" (env :path)
+                                         "HOME" (env :home)}
                                         (:secrets task)))
                   (shell/sh "gosu" "runops" "bash" custom-command-file
-                            :env (merge {"PATH" (System/getenv "PATH")
-                                         "HOME" (System/getenv "HOME")}
+                            :proc-chan (:proc-chan task)
+                            :env (merge {"PATH" (env :path)
+                                         "HOME" (env :home)}
                                         (:secrets task))))]
     (doall (map rm-tmp-file [custom-command-file custom-command-stdin-file]))
     outcome))
@@ -449,6 +474,7 @@ fi")
      (log/info (crypto/verify-sig (get task :token "") (:well-known-jwks task))
                "user validated with success!")
      [task nil]
+     (catch InterruptedException e (throw e))
      (catch Exception e
        (let [jwk-kids (->> (get-in task [:well-known-jwks :keys])
                            (map :kid)
@@ -493,6 +519,7 @@ fi")
       (if (http-client/success? response)
         [(assoc task :pre-signed-upload-url (:pre_signed_upload_url body)) nil]
         [nil "task not found"]))
+    (catch InterruptedException e (throw e))
     (catch Exception e
       (log/error (format "failed to lock task id [%s] with error: %s" (:id task) e))
       (sentry-task-logger e task "failed to lock task")
@@ -519,6 +546,7 @@ fi")
                            (when-let  [secret-val (get secrets (keyword v))]
                              {k secret-val}))
                          secret-mapping))) nil])
+    (catch InterruptedException e (throw e))
     (catch Exception e
       (let [msg-err (format "failed reading secret-mapping config. task=%s, mapping=%s, err=%s"
                             (:id task) (:secret-mapping task) (.getMessage e))]
@@ -545,6 +573,7 @@ fi")
         [(assoc task :runtime-args {:ecs-task-arn ecs-task-arn}
                 ;; allow using inside a custom command, e.g. --task [[ECS_TASK_ID]]
                 :secrets (conj (:secrets task) {:ECS_TASK_ID ecs-task-arn})) nil])
+      (catch InterruptedException e (throw e))
       (catch Throwable e
         (log/error e "failed to obtain ECS Task ID")
         (sentry-task-logger e task "failed to obtain ECS Task ID")
@@ -578,6 +607,7 @@ fi")
               :shell-stderr shell-stderr
               :shell-exit-code shell-exit-code
               :shell-stdout-size (count shell-stdout)) nil])
+    (catch InterruptedException e (throw e))
     (catch Exception e
       (log/error (format "shell command failed for task id %s with error: %s" (:id task) e))
       (sentry-task-logger e task "shell command failed")
@@ -613,6 +643,7 @@ fi")
                 :shell-stdout redacted-str
                 :overview-metrics overview-metrics
                 :redacted true) nil])
+      (catch InterruptedException e (throw e))
       (catch Throwable e
         (log/warn e {:task-id (:id task)} "failed to redact output from shell command")
         (sentry-task-logger e task "failed to redact output from shell command")
@@ -624,7 +655,7 @@ fi")
                 :redacted true) nil])))
 
 (defn report-result [task]
-  (when (= (System/getenv "DEBUG_OUTPUT") "true")
+  (when (= (env :debug-output) "true")
     (log/info {:task-id (:id task)
                :exit-code (:shell-exit-code task)
                :redacted (:redacted task)}

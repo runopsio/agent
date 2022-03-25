@@ -9,6 +9,8 @@
                  [buddy "2.0.0"]
                  [buddy/buddy-core "1.10.1"]
                  [buddy/buddy-sign "3.4.1"]
+                 [prismatic/schema "1.2.0"]
+                 [environ "1.2.0"]
 
                  ; gRPC
                  [protojure "1.6.4"]
@@ -51,6 +53,6 @@
   :source-paths ["src" "test"]
   :main ^:skip-aot agent.core
   :target-path "target/%s"
-  :aliases {"clj-kondo" ["trampoline" "run" "-m" "clj-kondo.main"]
-            "run-grpc-dev" ["trampoline" "run" "-m" "agent.core/run-grpc-dev"]}
-  :profiles {:uberjar {:aot :all}})
+  :aliases {"clj-kondo" ["trampoline" "run" "-m" "clj-kondo.main"]}
+  :profiles {:uberjar {:aot :all}
+             :with-repl {:jvm-opts ["-Dclojure.server.repl={:port 5559 :accept clojure.core.server/repl}"]}})

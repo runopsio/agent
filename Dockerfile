@@ -18,6 +18,7 @@ RUN apt-get update -y && \
         python3-dev \
         locales \
         gosu \
+        tini \
         redis-tools \
         apt-utils \
         curl \
@@ -180,4 +181,5 @@ ENV PATH="/opt/mssql-tools/bin:${PATH}"
 ADD target/uberjar/agent-$VERSION-standalone.jar /agent/app.jar
 ADD rootfs/* /
 
+ENTRYPOINT ["tini", "--"]
 CMD ["java", "-jar", "/agent/app.jar"]
