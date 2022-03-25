@@ -64,6 +64,7 @@
 (def TaskStatusNotFound
   {:id -1
    :name ""
+   :thread-id -1
    :block -1
    :daemon false
    :process-state "UNKNOWN"

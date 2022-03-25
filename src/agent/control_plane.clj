@@ -12,8 +12,10 @@
             [agent.errors :refer [err->>]]
             [tracer.honeycomb :refer [with-tracing
                                       with-tracing-end]]
-            [runtime.data :refer [runtime-data]]))
+            [runtime.data :refer [runtime-data]]
+            [clojure.java.io :as java.io]))
 
+(def task-pid-atom (atom {}))
 (def proc-chan-atom (atom {}))
 (def queue-info (atom #{}))
 
@@ -70,15 +72,29 @@
 (defn send-proc-command
   "Sends a proc command to a shell.sh/sh if the task-id exists in the atom.
   The accepted commands are :status or :kill"
-  [task-id proc-cmd]
-  (let [proc-chan (get @proc-chan-atom (keyword task-id))
+  [task-id thread-state proc-cmd]
+  (let [task-id-kw (keyword (str task-id))
+        proc-chan (get @proc-chan-atom task-id-kw)
         _ (when (:in proc-chan)
             (async/>!! (:in proc-chan) proc-cmd))
         proc-status (when (:out proc-chan)
                       (-> (async/alts!! [(:out proc-chan) (async/timeout 2000)])
                           first))
-        [process-state process-pid] [(:alive proc-status) (get proc-status :pid -1)]
-        process-state (case process-state
+        [alive process-pid] [(:alive proc-status) (get proc-status :pid -1)]
+        _ (when (> process-pid 1)
+            (swap! task-pid-atom assoc task-id-kw process-pid))
+        process-pid (get @task-pid-atom task-id-kw -1)
+        ;; makes a best-effort to validate if the pid is alive in
+        ;; the operating system. The thread-state is important to determine
+        ;; if a thread existed recently, otherwise this could lead to a false positive.
+        alive (if (and (> process-pid 1)
+                       (= (System/getProperty "os.name") "Linux")
+                       (= thread-state "TIMED_WAITING"))
+                (cond
+                  (.exists (java.io/file (str "/proc/" process-pid))) "true"
+                  :else "false")
+                alive)
+        process-state (case alive
                         "true" "RUNNING"
                         "false" "DEAD"
                         "UNKNOWN")]
@@ -87,7 +103,7 @@
 
 (defn process-task [runtime body]
   (let [task (types/json->clj types/TaskExecutionRequest body)
-        task-id-keyword (keyword (:id task))
+        task-id-keyword (keyword (str (:id task)))
         proc-chan {:in (async/chan 1)
                    :out (async/chan 1)}
         _ (swap! proc-chan-atom assoc task-id-keyword proc-chan)]
@@ -99,9 +115,9 @@
 
 (defn process-task-status-request [body send-ch]
   (let [req (types/json->clj types/TaskStatusRequest body)
-        proc-status (send-proc-command (:id req) :status)
         thread-info (or (find-thread-by-name (str "task:" (:id req)))
                         types/TaskStatusNotFound)
+        proc-status (send-proc-command (:id req) (:state thread-info) :status)
         task-status (conj thread-info
                           proc-status
                           {:id (:id req)})]
@@ -114,9 +130,12 @@
   (let [req (types/json->clj types/KillTaskRequest body)
         task-id (str "task:" (:id req))
         _ (stop-thread-by-name task-id)
-        proc-status (send-proc-command (:id req) :kill)
+        _ (Thread/sleep 1000) ; give time for the thread to change its state
         thread-info (or (find-thread-by-name task-id)
                         types/TaskStatusNotFound)
+        ;; send two calls to propagate properly the state of the system
+        _ (send-proc-command (:id req) (:state thread-info) :kill)
+        proc-status (send-proc-command (:id req) (:state thread-info) :kill)
         task-status (conj thread-info
                           proc-status
                           {:id (:id req)})]
