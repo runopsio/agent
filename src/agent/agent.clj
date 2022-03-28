@@ -64,7 +64,7 @@
                    script-items (clojure.string/split (:script task) #" ")
                    command-items (apply conj ["kubectl" "--kubeconfig" (.getAbsolutePath kube-file)]
                                         script-items)
-                   command-items (conj command-items [:proc-chan (:proc-chan task)])
+                   command-items (apply conj command-items [:proc-chan (:proc-chan task)])
                    sh (apply shell/sh command-items)]
                (.delete kube-file)
                sh)))
