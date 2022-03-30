@@ -55,6 +55,7 @@
 (s/defschema KillTaskRequest
   "api -> agent"
   {:id s/Int
+   :type s/Str
    s/Any s/Any})
 
 (s/defschema KillTaskResponse
