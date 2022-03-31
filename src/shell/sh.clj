@@ -55,6 +55,28 @@
     (stream-to-bytes stream)
     (stream-to-string stream enc)))
 
+(defn- send-proc-action
+  "Interacts with a current process, if action is :kill destroy the
+   current process and its descendants, otherwise fetch it status.
+   Returns a tuple containing the main process status as the first item
+   and its descendants:
+   [{:pid s/Int :alive s/Bool} ...]"
+  [^java.lang.Process proc action]
+  (try
+    (let [childrens (iterator-seq
+                     (-> proc
+                         (.toHandle)
+                         (.descendants)
+                         (.iterator)))
+          _ (when (= action :kill)
+              (doall (map (fn [p] (.destroy p)) childrens))
+               ; give it time to propagate to the system
+              (Thread/sleep 1000))
+          children-res (map (fn [p] {:alive (.isAlive p) :pid (.pid p)}) childrens)]
+      (apply conj [{:alive (.isAlive proc) :pid (.pid proc)}] children-res))
+    (catch Exception _
+      nil)))
+
 (defn sh
   "Passes the given strings to Runtime.exec() to launch a sub-process.
 
@@ -112,14 +134,8 @@
           (loop []
             (when-some [chan-cmd (async/<!! (:in proc-chan))]
               (case chan-cmd
-                :status (async/>!! (:out proc-chan) {:alive (str (.isAlive proc))
-                                                     :pid (.pid proc)})
-                :kill (when (.isAlive proc)
-                        (.destroy proc)
-                        ;; give some time for the kill to propagate to the O.S.
-                        (Thread/sleep 500)
-                        (async/>!! (:out proc-chan) {:alive (str (.isAlive proc))
-                                                     :pid (.pid proc)}))
+                :status (async/>!! (:out proc-chan) (send-proc-action proc :status))
+                :kill (async/>!! (:out proc-chan) (send-proc-action proc :kill))
                 nil)
               (recur)))))
 
