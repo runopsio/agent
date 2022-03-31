@@ -126,9 +126,13 @@
                                types/TaskStatusResponse
                                task-status)})))
 
-(defn process-kill-task-request [body send-ch]
-  (let [req (types/json->clj types/KillTaskRequest body)
-        task-id (str "task:" (:id req))
+(defn validate-kill-task-request [req]
+  (when (empty? (filter #(= % (:type req))
+                        ["ecs-exec" "k8s-exec" "rails-console-ecs"]))
+    req))
+
+(defn process-kill-task-request [req send-ch]
+  (let [task-id (str "task:" (:id req))
         _ (stop-thread-by-name task-id)
         _ (Thread/sleep 1000) ; give time for the thread to change its state
         thread-info (or (find-thread-by-name task-id)
@@ -151,7 +155,9 @@
     "task-execution-request" (process-task runtime body)
     "keep-alive-request" (process-keep-alive-request send-ch)
     "task-status-request" (process-task-status-request body send-ch)
-    "kill-task-request" (process-kill-task-request body send-ch)
+    "kill-task-request" (some-> (types/json->clj types/KillTaskRequest body)
+                                (validate-kill-task-request)
+                                (process-kill-task-request send-ch))
     (throw (Exception. (format "Type %s not supported!" type)))))
 
 (defn- when-closed [future-to-watch callback]
