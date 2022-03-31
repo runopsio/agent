@@ -1,8 +1,6 @@
 (ns shell.sh
   (:require [clojure.core.async :as async]
-            [clojure.java.io :refer [as-file copy]]
-            [clojure.pprint :as pp]
-            [clojure.reflect :as rf])
+            [clojure.java.io :refer [as-file copy]])
   (:import (java.io ByteArrayOutputStream StringWriter)
            (java.nio.charset Charset)))
 
