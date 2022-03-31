@@ -15,7 +15,7 @@
             [runtime.data :refer [runtime-data]]
             [clojure.java.io :as java.io]))
 
-(def task-pid-atom (atom {}))
+(def task-proc-status-atom (atom {}))
 (def proc-chan-atom (atom {}))
 (def queue-info (atom #{}))
 
@@ -69,6 +69,13 @@
         (log/error e {:task-id (:id task) :queue (queue-length)} "failed to run task.")
         (sentry-task-logger e task "failed to process message")))))
 
+(defn parse-proc-state [proc-status]
+  (if (or (nil? proc-status) (empty? proc-status))
+    "UNKNOWN"
+    (case (not-empty (filter #(true? (:alive %)) proc-status))
+      nil "DEAD"
+      "RUNNING")))
+
 (defn send-proc-command
   "Sends a proc command to a shell.sh/sh if the task-id exists in the atom.
   The accepted commands are :status or :kill"
@@ -80,26 +87,24 @@
         proc-status (when (:out proc-chan)
                       (-> (async/alts!! [(:out proc-chan) (async/timeout 2000)])
                           first))
-        [alive process-pid] [(:alive proc-status) (get proc-status :pid -1)]
-        _ (when (> process-pid 1)
-            (swap! task-pid-atom assoc task-id-kw process-pid))
-        process-pid (get @task-pid-atom task-id-kw -1)
+        _ (when proc-status
+            (swap! task-proc-status-atom assoc task-id-kw proc-status))
+        proc-status (get @task-proc-status-atom task-id-kw)
         ;; makes a best-effort to validate if the pid is alive in
         ;; the operating system. The thread-state is important to determine
         ;; if a thread existed recently, otherwise this could lead to a false positive.
-        alive (if (and (> process-pid 1)
-                       (= (System/getProperty "os.name") "Linux")
-                       (= thread-state "TIMED_WAITING"))
-                (cond
-                  (.exists (java.io/file (str "/proc/" process-pid))) "true"
-                  :else "false")
-                alive)
-        process-state (case alive
-                        "true" "RUNNING"
-                        "false" "DEAD"
-                        "UNKNOWN")]
+        proc-status (if (and (coll? proc-status)
+                             (= (System/getProperty "os.name") "Linux")
+                             (= thread-state "TIMED_WAITING"))
+                      (map #(hash-map
+                             :pid (:pid %)
+                             :alive (.exists (java.io/file (str "/proc/" (:pid %)))))
+                           proc-status)
+                      proc-status)
+        process-state (parse-proc-state proc-status)]
     {:process-state process-state
-     :process-pid process-pid}))
+     :process-root (first proc-status)
+     :process-childrens (into [] (rest proc-status))}))
 
 (defn process-task [runtime body]
   (let [task (types/json->clj types/TaskExecutionRequest body)
@@ -133,8 +138,6 @@
         _ (Thread/sleep 1000) ; give time for the thread to change its state
         thread-info (or (find-thread-by-name task-id)
                         types/TaskStatusNotFound)
-        ;; send two calls to propagate properly the state of the system
-        _ (send-proc-command (:id req) (:state thread-info) :kill)
         proc-status (send-proc-command (:id req) (:state thread-info) :kill)
         task-status (conj thread-info
                           proc-status
@@ -214,5 +217,6 @@
                                   :org org}}))
         (catch Exception e
           (log/error e "got error when processing rpc message")
-          (sentry-task-logger e {:mode "grpc"} (format "failed processing rpc message=%s" msg))))
+          (sentry-task-logger e {:mode "grpc"} (format "failed processing rpc message. type=%s, body=%s"
+                                                       (:type msg) (:body msg)))))
       (recur (inc n) false receive-ch send-ch))))

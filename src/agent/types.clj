@@ -39,7 +39,8 @@
    :block s/Int
    :daemon s/Bool
    :process-state (s/enum "RUNNING" "DEAD" "UNKNOWN")
-   :process-pid s/Int
+   :process-root (s/maybe {:pid s/Int :alive s/Bool})
+   :process-childrens (s/maybe [{:pid s/Int :alive s/Bool}])
    ;; https://docs.oracle.com/javase/7/docs/api/java/lang/Thread.State.html
    :state (s/enum "NEW" "RUNNABLE" "BLOCKED" "WAITING" "TIMED_WAITING" "TERMINATED" "NOT_FOUND")
    :suspended s/Bool
@@ -68,7 +69,8 @@
    :block -1
    :daemon false
    :process-state "UNKNOWN"
-   :process-pid -1
+   :process-root nil
+   :process-childrens nil
    :state "NOT_FOUND"
    :suspended false
    :native false

@@ -25,7 +25,7 @@
                  [org.ow2.asm/asm "9.1"]
 
                  ; monitoring
-                 [io.sentry/sentry-clj "5.5.164"]
+                 [io.sentry/sentry-clj "5.7.171"]
                  [io.honeycomb/honeycomb-opentelemetry-sdk "0.4.0"]
 
                  ;; logging
