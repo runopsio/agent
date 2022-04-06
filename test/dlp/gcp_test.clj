@@ -7,7 +7,8 @@
     (let [input-text (str "My name is Gary Oldman and my email is gary.duck@example.com "
                           "and my phone number is +5511959656212, my ip address is 200.20.10.100, "
                           "my website is runops.io my cpf is 46251484136 my gender is male "
-                          "and i have 25 years old my birthday is 04 of June!")
+                          "and i have 25 years old my birthday is 04 of June. "
+                          "I live in Brazil/São Paulo!")
           chunks-of 10
           chunk-size (int (Math/ceil (/ (count input-text) 10)))
           chunk-list (dlp/bytes->chunks input-text chunks-of)]

@@ -113,7 +113,7 @@
                      (string? bytes-or-str) (vec (.getBytes bytes-or-str))
                      (bytes? bytes-or-str) (vec bytes-or-str)
                      :else (throw (IllegalArgumentException. "wrong input type for bytes-or-str param")))
-         input-length (count bytes-or-str)]
+         input-length (count (.getBytes bytes-or-str))]
      (loop [chunk-start 0
             chunk-end chunk-limit
             result []]
