@@ -35,11 +35,13 @@
 (defn sentry-task-logger
   "Extract useful information from a runops task and add as a context"
   ([ex task message]
-   (sentry-logger {:message message
-                   :throwable ex
+   (sentry-logger {:message (format "%s\n---\n%s" message (pr-str ex))
+                  ;;  TODO: leading to errors when reaching sentry, need to investigate
+                  ;;  :throwable ex
                    :tags (merge {:mode (name (get task :mode "runops:null"))
                                  :type (get task :type "runops:null")
-                                 :task-id (get task :id "runops:null")}
+                                 :task-id (get task :id "runops:null")
+                                 :target (get task :target "runops:null")}
                                 (when-not (clojure.string/blank? (:secret-provider task))
                                   {:secret-provider (:secret-provider task)}))}))
   ([task message]
