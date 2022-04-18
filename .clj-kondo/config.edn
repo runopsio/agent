@@ -1,5 +1,3 @@
-;; {}
-
 {:lint-as {mount.core/defstate clojure.core/def}
  :skip-comments true
  :linters {:unresolved-namespace {:report-duplicates true
@@ -10,6 +8,5 @@
            :unresolved-symbol {:report-duplicates true}
            :not-empty? {:level :off}}
  :output {:exclude-files ["src/io/grpc.cljc"
-                          "src/io/grpc/Agent/client.cljc"]}}
-
-;; {}
+                          "src/io/grpc/Agent/client.cljc"
+                          "src/hooks-fn"]}}
