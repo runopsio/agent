@@ -1,4 +1,4 @@
-# Hooks Functions
+# Hook Functions
 
 This directory contains examples and helper functions which will run before or after a running task, a hook is wrote in an [edn format](https://github.com/edn-format/edn). The example below will use attributes from the runtime of a task and add a prefix to the script mutating it:
 
