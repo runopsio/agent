@@ -81,6 +81,9 @@
                        "-D" (:MYSQL_DB (:secrets task))
                        "-u" (:MYSQL_USER (:secrets task))
                        "-P" (str (or (:MYSQL_PORT (:secrets task)) "3306"))
+                       (if (= (get-in task [:secrets :PRESERVE_COMMENTS]) "true")
+                         "--comments"
+                         "--skip-comments")
                        :env {"MYSQL_PWD" (:MYSQL_PASS (:secrets task))}
                        :in (:script task)
                        :proc-chan (:proc-chan task))))
