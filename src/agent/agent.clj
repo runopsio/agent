@@ -81,6 +81,9 @@
                        "-D" (:MYSQL_DB (:secrets task))
                        "-u" (:MYSQL_USER (:secrets task))
                        "-P" (str (or (:MYSQL_PORT (:secrets task)) "3306"))
+                       (if (= (get-in task [:secrets :PRESERVE_COMMENTS]) "true")
+                         "--comments"
+                         "--skip-comments")
                        :env {"MYSQL_PWD" (:MYSQL_PASS (:secrets task))}
                        :in (:script task)
                        :proc-chan (:proc-chan task))))
@@ -432,8 +435,11 @@ fi")
          validate-secrets
          parse-custom-command
          render-script
-         fetch-runtime-args
          parse-metadata-flags
+         parse-hooks
+         run-prehook
+         run-posthook
+         fetch-runtime-args
          run-command
          redact-content
          report-result)
@@ -451,10 +457,13 @@ fi")
               (with-tracing add-secrets-from-mapping [:run-agent-task :add-secrets-from-mapping])
               (with-tracing validate-secrets [:run-agent-task :validate-secrets])
               (with-tracing render-script [:run-agent-task :render-script])
-              (with-tracing fetch-runtime-args [:run-agent-task :fetch-runtime-args])
               (with-tracing parse-metadata-flags [:run-agent-task :parse-metadata-flags])
+              (with-tracing parse-hooks [:run-agent-task :parse-hooks])
+              (with-tracing run-prehook [:run-agent-task :run-prehook])
+              (with-tracing fetch-runtime-args [:run-agent-task :fetch-runtime-args])
               (with-tracing run-command [:run-agent-task (keyword (:type task))])
               (with-tracing redact-content [:run-agent-task :redact-content])
+              (with-tracing run-posthook [:run-agent-task :run-posthook])
               (with-tracing report-result [:run-agent-task :report-result])
               (with-tracing-end)))
 
@@ -557,6 +566,71 @@ fi")
 (defn render-script [task]
   [(assoc task :script (parser/render (:script task) (:secrets task))) nil])
 
+(defn parse-metadata-flags [task]
+  (let [task-id (:id task)
+        target (:target task)
+        description (:description task)
+        user-email (:user-email task)]
+    [(assoc task :secrets (conj (:secrets task)
+                                {:RUNOPS_TASK_ID task-id
+                                 :RUNOPS_TASK_TARGET target
+                                 :RUNOPS_TASK_DESCRIPTION description
+                                 :RUNOPS_TASK_USER_EMAIL user-email})) nil]))
+
+(defn parse-hooks [task]
+  (try
+    (let [hook-edn (when (:hooks task) (read-string
+                                        (decode-base64 (:hooks task))))
+          [prehook-fn prehook-meta] (when hook-edn
+                                      [(eval (get-in hook-edn [:pre-hook :function]))
+                                       (dissoc (:pre-hook hook-edn) :function)])
+          [posthook-fn posthook-meta] (when hook-edn
+                                        [(eval (get-in hook-edn [:post-hook :function]))
+                                         (dissoc (:post-hook hook-edn) :function)])
+          hook-params (when (or prehook-fn posthook-fn)
+                        {:task-id (:id task)
+                         :user-email (:user-email task)
+                         :description (:description task)
+                         :type (:type task)
+                         :target (:target task)
+                         :secret-provider (:secret-provider task)
+                         :secret-path (:secret-path task)
+                         :redact (:redact task)
+                         :script (:script task)})]
+      [(assoc task
+              :pre-hook {:fn prehook-fn :metadata prehook-meta}
+              :post-hook {:fn posthook-fn :metadata posthook-meta}
+              :hook-params hook-params) nil])
+    (catch InterruptedException e (throw e))
+    (catch Throwable e
+      (log/error e "failed to parse hooks")
+      (sentry-task-logger e task "failed to parse hooks")
+      (fail-task-with-message task "internal error: failed to run task"))))
+
+(defn run-prehook [task]
+  (if-let [pre-hook-fn (get-in task [:pre-hook :fn])]
+    (try
+      (case (get-in task [:pre-hook :metadata :action])
+        :prehook-stop (let [res (pre-hook-fn (:hook-params task))]
+                        (log/info {:task-id (:id task)} "executing prehook-stop")
+                        (if res
+                          (fail-task-with-message task (str res))
+                          [task nil]))
+        :prehook-script-mutate (let [_ (log/info {:task-id (:id task)} "executing prehook-script-mutate")
+                                     script (pre-hook-fn (:hook-params task))]
+                                 [(assoc task :script script) nil])
+        (do (log/info {:task-id (:id task)} "executing prehook-default")
+            (pre-hook-fn (:hook-params task))
+            [task nil]))
+      (catch InterruptedException e (throw e))
+      (catch Throwable e
+        (log/error e "failed to run pre-hook")
+        (sentry-task-logger e task "failed to run pre-hook")
+        (if (= (get-in task [:pre-hook :metadata :continue-on-error]) true)
+          [task nil]
+          (fail-task-with-message task "failed to run pre-hook"))))
+    [task nil]))
+
 (defn fetch-runtime-args [task]
   (case (:type task)
     (or "rails-console-ecs" "ecs-exec")
@@ -579,17 +653,6 @@ fi")
         (sentry-task-logger e task "failed to obtain ECS Task ID")
         (fail-task-with-message task "failed to obtain ECS Task ID")))
     [task nil]))
-
-(defn parse-metadata-flags [task]
-  (let [task-id (:id task)
-        target (:target task)
-        description (:description task)
-        user-email (:user-email task)]
-    [(assoc task :secrets (conj (:secrets task)
-                                {:RUNOPS_TASK_ID task-id
-                                 :RUNOPS_TASK_TARGET target
-                                 :RUNOPS_TASK_DESCRIPTION description
-                                 :RUNOPS_TASK_USER_EMAIL user-email})) nil]))
 
 (defn run-command [task]
   (try
@@ -653,6 +716,32 @@ fi")
         [(assoc task
                 :shell-stdout (:shell-stdout task)
                 :redacted true) nil])))
+
+(defn run-posthook [task]
+  (if-let [post-hook-fn (get-in task [:post-hook :fn])]
+    (try
+      (case (get-in task [:post-hook :metadata :action])
+        :posthook-stdout-mutate
+        (let [_ (log/info {:task-id (:id task)} "executing posthook-stdout-mutate")
+              hook-params (assoc (:hook-params task)
+                                 :shell-stdout (:shell-stdout task)
+                                 :shell-exit-code (:shell-exit-code task))
+              shell-stdout (post-hook-fn hook-params)]
+          [(assoc task :shell-stdout shell-stdout) nil])
+        (let [_ (log/info {:task-id (:id task)} "executing posthook-default")
+              hook-params (assoc (:hook-params task)
+                                 :shell-stdout (:shell-stdout task)
+                                 :shell-exit-code (:shell-exit-code task))]
+          (post-hook-fn hook-params)
+          [task nil]))
+      (catch InterruptedException e (throw e))
+      (catch Throwable e
+        (log/error e "failed to run post-hook")
+        (sentry-task-logger e task "failed to run post-hook")
+        (if (= (get-in task [:post-hook :metadata :continue-on-error]) true)
+          [task nil]
+          (fail-task-with-message task "failed to run post-hook"))))
+    [task nil]))
 
 (defn report-result [task]
   (when (= (env :debug-output) "true")

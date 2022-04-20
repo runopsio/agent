@@ -18,6 +18,7 @@
    (s/optional-key :secret-path) (s/maybe s/Str)
    (s/optional-key :secret-mapping) (s/maybe s/Str)
    (s/optional-key :custom-command) (s/maybe s/Str)
+   (s/optional-key :hooks) (s/maybe s/Str)
    (s/optional-key :token) (s/maybe s/Str)
    (s/optional-key :pre-signed-upload-url) (s/maybe s/Str)
    ;; metadata keys
