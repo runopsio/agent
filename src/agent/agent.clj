@@ -429,7 +429,6 @@ fi")
          validate-user-token
          validate-queue
          parse-command
-         lock-task
          get-secrets
          add-secrets-from-mapping
          validate-secrets
@@ -451,8 +450,6 @@ fi")
               (with-tracing parse-command [:run-agent-task :parse-command])
               (with-tracing parse-custom-command [:run-agent-task :parse-custom-command]
                 {:agent.custom_command (not (clojure.string/blank? (:custom-command task)))})
-              (with-tracing lock-task [:run-agent-task :lock-task]
-                {:agent.lock_task (= (:mode task) :poll)})
               (with-tracing get-secrets [:run-agent-task :get-secrets])
               (with-tracing add-secrets-from-mapping [:run-agent-task :add-secrets-from-mapping])
               (with-tracing validate-secrets [:run-agent-task :validate-secrets])
@@ -511,28 +508,6 @@ fi")
                   sh-custom-command
                   (:command task))]
     [(assoc task :stdin-input stdin-input :command command) nil]))
-
-(defmulti lock-task (fn [task] (:mode task)))
-(defmethod lock-task :grpc [task]
-  [task nil])
-
-(defmethod lock-task :poll [task]
-  (log/info (format "Locking task id [%s]" (:id task)))
-  (try
-    (let [response (http-client/post (format "%s/v1/tasks/%s/lock" clients/api-url (:id task))
-                                     {:headers {"Authorization" (str "Bearer " clients/token)
-                                                "Accept" "application/edn"
-                                                "Origin" "agent"}
-                                      :throw-exceptions false})
-          body (read-string (:body response))]
-      (if (http-client/success? response)
-        [(assoc task :pre-signed-upload-url (:pre_signed_upload_url body)) nil]
-        [nil "task not found"]))
-    (catch InterruptedException e (throw e))
-    (catch Exception e
-      (log/error (format "failed to lock task id [%s] with error: %s" (:id task) e))
-      (sentry-task-logger e task "failed to lock task")
-      [nil "failed to lock task"])))
 
 (defn get-secrets [task]
   (let [result (secrets/fetch task)
