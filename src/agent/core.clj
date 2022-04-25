@@ -8,7 +8,6 @@
             [environ.core :refer [env]]
             [logger.timbre-json :as timbre-json]
             [taoensso.timbre.appenders.core :as appenders]
-            [agent.http-poller :as http]
             [agent.control-plane :as cp]
             [backoff.time :as backoff]
             [runtime.init :as init]
@@ -43,14 +42,12 @@
                       backoff-grpc-connect-subscribe
                       backoff-http-poll
                       (count (:dlp-fields runtime-config))))
-    (future
-      (try
-        (cp/run-controller {:org (get (mount/args) :org "")
-                            :well-known-jwks well-known-jwks
-                            :dlp-fields dlp-fields
-                            :backoff-subscribe-ms backoff-grpc-connect-subscribe})
-        (catch Throwable e
-          (log/error e "failed running control plane controller, shuting down process!")
-          (sentry-task-logger e {:mode "grpc"} "failed running control plane controller")
-          (System/exit 1))))
-    (http/poll dlp-fields backoff-http-poll)))
+    (try
+      (cp/run-controller {:org (get (mount/args) :org "")
+                          :well-known-jwks well-known-jwks
+                          :dlp-fields dlp-fields
+                          :backoff-subscribe-ms backoff-grpc-connect-subscribe})
+      (catch Throwable e
+        (log/error e "failed running control plane controller, shuting down process!")
+        (sentry-task-logger e {:mode "grpc"} "failed running control plane controller")
+        (System/exit 1)))))
