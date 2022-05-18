@@ -27,6 +27,7 @@ RUN apt-get update -y && \
         groff \
         unzip \
         expect \
+        libmysqlclient-dev \
         lsb-release && \
 	adduser runops --system --group
 
@@ -166,6 +167,7 @@ RUN pip3 install -U \
     retrying==1.3.3 \
     toml==0.10.2 \
     PyJWT==2.3.0 \
+    mysqlclient==2.1.0 \
     webencodings==0.5.1
 
 RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && \
