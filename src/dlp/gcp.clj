@@ -99,7 +99,16 @@
      :summary (into [] summary)}))
 
 (defn overview-metrics [overview-map-list]
-  {:agent.info-types (reduce + (map :info-types overview-map-list))
+  {:agent.info-types-summary
+   (->> overview-map-list
+        (map :summary)
+        (map-indexed (fn [idx itm]
+                       (when-not (empty? itm)
+                         (str "chunk" idx "="
+                              (->> (map #(str (:info-type %) ":" (:count %)) itm)
+                                   (clojure.string/join ","))))))
+        (clojure.string/join ";"))
+   :agent.info-types (reduce + (map :info-types overview-map-list))
    :agent.info-types-count (reduce + (map :info-types-count overview-map-list))
    :agent.transformed-bytes (reduce + (map :transformed-bytes overview-map-list))
    :agent.serialized-size (reduce + (map :serialized-size overview-map-list))})
