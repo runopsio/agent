@@ -27,7 +27,6 @@ RUN apt-get update -y && \
         groff \
         unzip \
         expect \
-        libmysqlclient-dev \
         lsb-release && \
 	adduser runops --system --group
 
@@ -167,7 +166,6 @@ RUN pip3 install -U \
     retrying==1.3.3 \
     toml==0.10.2 \
     PyJWT==2.3.0 \
-    mysqlclient==2.1.0 \
     confluent-kafka=1.8.2 \
     webencodings==0.5.1
 
