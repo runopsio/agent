@@ -129,7 +129,7 @@
   (let [secrets (:secrets task)
         field-separator (:FIELD_SEPARATOR secrets)
         field-separator? (not (clojure.string/blank? field-separator))]
-    (apply shell/sh (into ["sqlcmd" "-b"
+    (apply shell/sh (into ["sqlcmd" "-b" "-r"
                            "-S" (:MSSQL_CONNECTION_URI secrets)
                            "-U" (:MSSQL_USER secrets)
                            "-P" (:MSSQL_PASS secrets)
