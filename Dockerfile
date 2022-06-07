@@ -90,6 +90,8 @@ RUN curl -sL "https://dl.k8s.io/release/v1.22.1/bin/linux/amd64/kubectl" -o kube
 RUN echo "deb http://apt.postgresql.org/pub/repos/apt/ focal-pgdg main" | tee /etc/apt/sources.list.d/pgdg.list && \
     echo "deb [arch=amd64,arm64] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/5.0 multiverse" | tee /etc/apt/sources.list.d/mongodb-org-5.0.list && \
     echo "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/hashicorp.list && \
+    echo "deb https://cli-assets.heroku.com/apt ./" > /etc/apt/sources.list.d/heroku.list && \
+    curl -sL https://cli-assets.heroku.com/apt/release.key | apt-key add - && \
     curl -sL https://packages.microsoft.com/config/ubuntu/20.04/prod.list | tee /etc/apt/sources.list.d/msprod.list && \
     curl -sL https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - && \
     curl -sL https://www.mongodb.org/static/pgp/server-5.0.asc | apt-key add - && \
@@ -102,6 +104,7 @@ RUN apt-get update -y && \
     apt-get install -y \
         mongodb-org-tools mongodb-org-shell libyaml-cpp0.6 \
         vault=1.5.9 libcap2-bin \
+        heroku=7.60.2-1 \
         openjdk-11-jre \
         elixir=$ELIXIR_VERSION \
         default-mysql-client \
