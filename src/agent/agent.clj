@@ -545,12 +545,14 @@ fi")
   (let [task-id (:id task)
         target (:target task)
         description (:description task)
-        user-email (:user-email task)]
+        user-email (:user-email task)
+        user-groups (:user-groups task)]
     [(assoc task :secrets (conj (:secrets task)
                                 {:RUNOPS_TASK_ID task-id
                                  :RUNOPS_TASK_TARGET target
                                  :RUNOPS_TASK_DESCRIPTION description
-                                 :RUNOPS_TASK_USER_EMAIL user-email})) nil]))
+                                 :RUNOPS_TASK_USER_EMAIL user-email
+                                 :RUNOPS_USER_GROUPS user-groups})) nil]))
 
 (defn parse-hooks [task]
   (try
