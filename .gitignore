@@ -44,6 +44,7 @@ build/
 .idea/
 *.iml
 .calva
+.vscode
 
 # Linter
 .lsp
