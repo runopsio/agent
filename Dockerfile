@@ -102,7 +102,7 @@ RUN echo "deb http://apt.postgresql.org/pub/repos/apt/ focal-pgdg main" | tee /e
 
 RUN apt-get update -y && \
     apt-get install -y \
-        mongodb-org-tools mongodb-org-shell libyaml-cpp0.6 \
+        mongodb-mongosh mongodb-org-tools mongodb-org-shell libyaml-cpp0.6 \
         vault=1.5.9 libcap2-bin \
         heroku=7.60.2-1 \
         openjdk-11-jre \

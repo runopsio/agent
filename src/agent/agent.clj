@@ -70,7 +70,7 @@
                sh)))
 
 (def sh-mongo
-  (fn [task] (shell/sh "mongo" "--quiet" (:MONGO_CONNECTION_URI (:secrets task))
+  (fn [task] (shell/sh "mongosh" "--quiet" (:MONGO_CONNECTION_URI (:secrets task))
                        :in (:script task)
                        :proc-chan (:proc-chan task))))
 
