@@ -169,6 +169,7 @@ RUN pip3 install -U \
     retrying==1.3.3 \
     toml==0.10.2 \
     PyJWT==2.3.0 \
+    confluent-kafka=1.8.2 \
     webencodings==0.5.1
 
 RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && \
