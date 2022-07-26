@@ -24,6 +24,9 @@
                  ;; -- Jetty Client Dep --
                  [org.ow2.asm/asm "9.1"]
 
+                 ; web server
+                 [yada "1.2.15"]
+
                  ; monitoring
                  [io.sentry/sentry-clj "5.7.171"]
                  [io.honeycomb/honeycomb-opentelemetry-sdk "0.4.0"]
