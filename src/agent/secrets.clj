@@ -5,7 +5,8 @@
             [clojure.data.json :as json]
             [clj-http.client :as client]
             [agent.clients :as clients]
-            [agent.errors :as err])
+            [agent.errors :as err]
+            [clojure.java.io :as io])
   (:import software.amazon.awssdk.services.secretsmanager.model.GetSecretValueRequest))
 
 (defn json->map [str]
@@ -72,6 +73,41 @@
                   (fn [secrets] [(assoc task :secrets secrets) nil]))
       (do (log/error (format "failed to get env-var '%s'" secret-path))
           [nil (format "Secret '%s' not found" secret-path)]))))
+
+
+;; filesystem
+(declare get-filesystem-secret)
+
+(def default-filesystem-location
+  "secrets.json")
+
+(defn persist-secret [secret]
+  (log/info "Persisting filesystem secret")
+  (try
+    (spit default-filesystem-location (clojure.data.json/write-str secret))
+    [secret nil]
+    (catch Exception e
+      (log/error "failed to persis filesystem secret")
+      [nil "failed to persis filesystem secret"])))
+
+(defmethod fetch "filesystem" [task]
+  (log/info (format "Fetching secrets from filesystem for task id: %s" (:id task)))
+  (err/err->> task
+              validate-secret-path
+              get-filesystem-secret
+              (fn[result] [(assoc result :secrets ((keyword (:secret-path task)) (:secrets result)))])))
+
+(defn get-filesystem-secret [task]
+  (try
+    (if-let [content (slurp default-filesystem-location)]
+      (err/err->> content
+                  json->map
+                  (fn [secrets] [(assoc task :secrets secrets) nil]))
+      (do (log/error (format "failed to get filesystem '%s'" (:secret-path task)))
+          [nil (format "Failed to read filesystem secret '%s'" (:secret-path task))]))
+    (catch Exception e
+      (log/error (format "failed to get filesystem '%s'" (:secret-path task)))
+      [nil (format "Failed to read filesystem secret '%s'" (:secret-path task))])))
 
 
 ;; aws
