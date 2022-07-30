@@ -28,12 +28,7 @@
 (defn -main [& _]
   (log/info {:git-revision git-revision :tags tags :os (System/getProperty "os.name")}
             "Starting agent")
-  (let [runtime-config {:org "TestWorkspace"
-                        :hc-dataset "runops"
-                        :hc-api-key "e8f9fb62e7ff1ece4d8020df4cff5954"
-                        :sentry-dsn "https://7bee01d63c85471188c9157e62c79771@o919346.ingest.sentry.io/5863449"
-                        :sentry-env "local"
-                        :connection-config {:backoff-http-poll 15000, :backoff-grpc-connect-subscribe 5000, :grpc-connect-channel-timeout 300000}};(init/fetch-agent-config)
+  (let [runtime-config (init/fetch-agent-config)
         _ (-> (mount/with-args runtime-config) mount/start)
         well-known-jwks (init/fetch-jwks-pubkeys)
         backoff-grpc-connect-subscribe (get-in runtime-config [:connection-config :backoff-grpc-connect-subscribe])
