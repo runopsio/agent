@@ -1,37 +1,38 @@
 (ns agent.server
-  (:require [yada.yada :refer [listener resource as-resource handler]]
-            [schema.core :as s]
-            [agent.secrets :as secrets]
-            [agent.errors :as err]))
+  (:require [agent.secrets :as secrets]
+            [compojure.core :as compojure :refer [GET POST]]
+            [ring.middleware.params :as params]
+            [compojure.route :as route]
+            [aleph.http :as http]))
 
 
+(defn get-secrets-handler [req]
+  (let [result (secrets/get-filesystem-secret {})]
+    (if (first result)
+      {:status 200
+       :headers {"content-type" "application/json"}
+       :body (-> (first result)
+                 (:secrets)
+                 (clojure.data.json/write-str))}
+      {:status 404
+       :headers {"content-type" "application/json"}
+       :body "{\"message\": \"secrets not found\"}"})))
 
-;; yada
-(def secret-resource
-  (resource {:id      :resources/secrets
-             :methods {:post {:consumes   "application/json"
-                              :produces   "application/json"
-                              :parameters {:body s/Any}
-                              :response
-                                          (fn [ctx]
-                                            (let [result (err/err->> (:body ctx)
-                                                                     secrets/persist-secret)]
-                                              (if (first result)
-                                                (first result)
-                                                (:body ctx))))}
+(defn post-secrets-handler [req]
+  (let [body (slurp (:body req))
+        result (secrets/persist-secret body)]
+    (if (first result)
+      body
+      {:status 400
+       :headers {"content-type" "application/json"}
+       :body "{\"message\": \"failed to persist secrets\"}"})))
 
-                       :get  {:produces "application/json"
-                              :response (fn [ctx]
-                                          (let [result (err/err->> {}
-                                                                   secrets/get-filesystem-secret)]
-                                            (if (first result)
-                                              (:secrets (first result))
-                                              (second result))))}}}))
+(def handler
+  (params/wrap-params
+    (compojure/routes
+      (GET "/secrets" [] get-secrets-handler)
+      (POST "/secrets" [] post-secrets-handler)
+      (route/not-found "Not found"))))
 
 (defn listen-http []
-  (listener
-    ["/"
-     [
-      ["secrets" secret-resource]
-      [true (as-resource nil)]]]
-    {:port 3000}))
+  (http/start-server handler {:port 3000}))

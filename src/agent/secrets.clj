@@ -82,13 +82,13 @@
   "secrets.json")
 
 (defn persist-secret [secret]
-  (log/info "Persisting filesystem secret")
+  (log/info "Persisting filesystem secrets")
   (try
-    (spit default-filesystem-location (clojure.data.json/write-str secret))
+    (spit default-filesystem-location secret)
     [secret nil]
     (catch Exception e
-      (log/error "failed to persis filesystem secret")
-      [nil "failed to persis filesystem secret"])))
+      (log/error (format "Failed to persist filesystem secrets with error: %s" e))
+      [nil "failed to persist filesystem secrets"])))
 
 (defmethod fetch "filesystem" [task]
   (log/info (format "Fetching secrets from filesystem for task id: %s" (:id task)))

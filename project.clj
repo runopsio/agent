@@ -1,4 +1,4 @@
-(defproject agent "0.0.0"
+(defproject agent "latest"
   :description "Runops Agent"
   :url "https://github.com/runops/agent"
   :license {:name "EPL-2.0 OR GPL-2.0-or-later WITH Classpath-exception-2.0"
@@ -25,7 +25,8 @@
                  [org.ow2.asm/asm "9.1"]
 
                  ; web server
-                 [yada "1.2.15"]
+                 [aleph "0.5.0"]
+                 [compojure "1.7.0"]
 
                  ; monitoring
                  [io.sentry/sentry-clj "5.7.171"]
