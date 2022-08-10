@@ -106,7 +106,8 @@
       (do (log/error (format "failed to get filesystem '%s'" (:secret-path task)))
           [nil (format "Failed to read filesystem secret '%s'" (:secret-path task))]))
     (catch Exception e
-      (log/error (format "failed to get filesystem '%s'" (:secret-path task)))
+      (log/error (format "failed to get filesystem '%s' with error %s" (:secret-path task) e))
+      (sentry-task-logger e task "Failed to fetch filesystem secrets")
       [nil (format "Failed to read filesystem secret '%s'" (:secret-path task))])))
 
 
