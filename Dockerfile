@@ -104,7 +104,7 @@ RUN apt-get update -y && \
     apt-get install -y \
         mongodb-mongosh mongodb-org-tools mongodb-org-shell libyaml-cpp0.6 \
         vault=1.5.9 libcap2-bin \
-        heroku=7.60.2-1 \
+        heroku= \
         openjdk-11-jre \
         elixir=$ELIXIR_VERSION \
         default-mysql-client \

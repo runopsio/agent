@@ -3,7 +3,8 @@
             [compojure.core :as compojure :refer [GET POST]]
             [ring.middleware.params :as params]
             [compojure.route :as route]
-            [aleph.http :as http]))
+            [aleph.http :as http]
+            [clojure.data.json :as json]))
 
 
 (defn get-secrets-handler [req]
@@ -13,7 +14,7 @@
        :headers {"content-type" "application/json"}
        :body (-> (first result)
                  (:secrets)
-                 (clojure.data.json/write-str))}
+                 (json/write-str))}
       {:status 404
        :headers {"content-type" "application/json"}
        :body "{\"message\": \"secrets not found\"}"})))
