@@ -9,6 +9,7 @@
             [logger.timbre-json :as timbre-json]
             [taoensso.timbre.appenders.core :as appenders]
             [agent.control-plane :as cp]
+            [agent.server :as server]
             [backoff.time :as backoff]
             [runtime.init :as init]
             [mount.core :as mount]
@@ -42,6 +43,7 @@
                       backoff-grpc-connect-subscribe
                       backoff-http-poll
                       (count (:dlp-fields runtime-config))))
+    (server/listen-http)
     (try
       (cp/run-controller {:org (get (mount/args) :org "")
                           :well-known-jwks well-known-jwks

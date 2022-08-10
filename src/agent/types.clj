@@ -13,7 +13,7 @@
    :script s/Str
    (s/optional-key :config) (s/maybe s/Str)
    (s/optional-key :redact) (s/maybe (s/enum "all" "none"))
-   (s/optional-key :secret-provider) (s/maybe (s/enum "runops" "aws" "env-var"
+   (s/optional-key :secret-provider) (s/maybe (s/enum "runops" "aws" "env-var" "filesystem"
                                                       "hashicorp/db" "hashicorp/kv"))
    (s/optional-key :secret-path) (s/maybe s/Str)
    (s/optional-key :secret-mapping) (s/maybe s/Str)
