@@ -7,7 +7,7 @@
             [clojure.data.json :as json]))
 
 
-(defn get-secrets-handler [req]
+(defn get-secrets-handler [_]
   (let [result (secrets/get-filesystem-secret {})]
     (if (first result)
       {:status 200
