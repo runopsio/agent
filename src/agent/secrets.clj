@@ -5,8 +5,7 @@
             [clojure.data.json :as json]
             [clj-http.client :as client]
             [agent.clients :as clients]
-            [agent.errors :as err]
-            [clojure.java.io :as io])
+            [agent.errors :as err])
   (:import software.amazon.awssdk.services.secretsmanager.model.GetSecretValueRequest))
 
 (defn json->map [str]
