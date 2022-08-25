@@ -185,5 +185,8 @@ ENV PATH="/opt/mssql-tools/bin:${PATH}"
 ADD target/uberjar/agent-$VERSION-standalone.jar /agent/app.jar
 ADD rootfs/* /
 
+# webapp ui
+EXPOSE 8082
+
 ENTRYPOINT ["tini", "--"]
 CMD ["/usr/local/bin/run-agent.sh"]
