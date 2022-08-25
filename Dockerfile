@@ -186,7 +186,7 @@ ADD target/uberjar/agent-$VERSION-standalone.jar /agent/app.jar
 COPY rootfs/ /
 
 # webapp ui
-EXPOSE 8082
+EXPOSE 8280
 
 ENTRYPOINT ["tini", "--"]
 CMD ["/usr/local/bin/run-agent.sh"]
