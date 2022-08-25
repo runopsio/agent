@@ -131,6 +131,7 @@ RUN npm install --global moment@2.29.1 \
     mongoose@6.0.13 \
     moment-timezone@0.5.34 \
     lodash@4.17.21 \
+    serve@14.0.1 \
     firebase-admin@10.0.0
 
 RUN pip3 install -U \
@@ -185,4 +186,4 @@ ADD target/uberjar/agent-$VERSION-standalone.jar /agent/app.jar
 ADD rootfs/* /
 
 ENTRYPOINT ["tini", "--"]
-CMD ["java", "-jar", "/agent/app.jar"]
+CMD ["/usr/local/bin/run-agent.sh"]
