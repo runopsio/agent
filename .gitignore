@@ -48,7 +48,7 @@ build/
 
 # Linter
 .lsp
-.clj-kondo/.cache
+.clj-kondo/
 
 # General files
 secrets.json
