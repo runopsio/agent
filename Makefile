@@ -49,3 +49,5 @@ docker-mutable-push:
 	docker push ${MUTABLE_IMAGE}
 
 docker-push: docker-mutable-push docker-immutable-push
+
+.PHONY: test build release info
