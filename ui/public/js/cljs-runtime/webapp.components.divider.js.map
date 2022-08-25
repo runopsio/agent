@@ -1,1 +1,0 @@
-{"version":3,"sources":["webapp/components/divider.cljs"],"mappings":";AAEA,iCAAA,jCAAMA;AAAN,AAAA,0FAAA","names":["webapp.components.divider/main"],"sourcesContent":["(ns webapp.components.divider)\n\n(defn main\n  []\n  [:div.border-b.mb-4])\n\n"]}
