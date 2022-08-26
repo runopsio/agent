@@ -1,6 +1,6 @@
 (ns agent.server
   (:require [agent.secrets :as secrets]
-            [compojure.core :as compojure :refer [GET POST]]
+            [compojure.core :as compojure :refer [GET POST OPTIONS]]
             [ring.middleware.params :as params]
             [compojure.route :as route]
             [aleph.http :as http]
@@ -28,11 +28,16 @@
        :headers {"content-type" "application/json"}
        :body "{\"message\": \"failed to persist secrets\"}"})))
 
+(defn options-secrets-handler [req]
+  {:status 204
+   :headers {"allow" "OPTIONS, GET, POST"}})
+
 (def handler
   (params/wrap-params
     (compojure/routes
       (GET "/secrets" [] get-secrets-handler)
       (POST "/secrets" [] post-secrets-handler)
+      (OPTIONS "/secrets" [] options-secrets-handler)
       (route/not-found "Not found"))))
 
 (defn listen-http []
