@@ -11,7 +11,8 @@
   (let [result (secrets/get-filesystem-secret {})]
     (if (first result)
       {:status 200
-       :headers {"content-type" "application/json"}
+       :headers {"content-type" "application/json"
+                 "Access-Control-Allow-Origin" "*"}
        :body (-> (first result)
                  (:secrets)
                  (json/write-str))}
@@ -23,14 +24,18 @@
   (let [body (slurp (:body req))
         result (secrets/persist-secret body)]
     (if (first result)
-      body
+      {:status 201
+       :headers {"content-type" "application/json"
+                 "Access-Control-Allow-Origin" "*"}
+       :body body}
       {:status 400
        :headers {"content-type" "application/json"}
        :body "{\"message\": \"failed to persist secrets\"}"})))
 
-(defn options-secrets-handler [req]
+(defn options-secrets-handler [_]
   {:status 204
-   :headers {"allow" "OPTIONS, GET, POST"}})
+   :headers {"allow" "OPTIONS, GET, POST"
+             "Access-Control-Allow-Origin" "*"}})
 
 (def handler
   (params/wrap-params
