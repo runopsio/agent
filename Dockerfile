@@ -147,6 +147,7 @@ RUN pip3 install -U \
     distro==1.5.0 \
     html5lib==1.1 \
     hvac==0.11.2 \
+    kafka-python==2.0.2 \
     kubernetes==20.13.0 \
     lockfile==0.12.2 \
     msgpack==1.0.2 \
