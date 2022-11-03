@@ -226,6 +226,22 @@
     (.delete kube-file)
     outcome))
 
+(defn sh-heroku [task]
+  (let [app-name (get-in task [:secrets :HEROKU_APP])
+        dyno-size (get-in task [:secrets :HEROKU_DYNO_SIZE])
+        process-type (get-in task [:secrets :HEROKU_PROCESS_TYPE])
+        suffix-cmd (get-in task [:secrets :HEROKU_EXEC_COMMAND])
+        outcome (shell/sh "/bin/bash" "-c"
+                          (str "exec heroku run --no-tty "
+                               (when dyno-size
+                                 (format "--size %s " dyno-size))
+                               (when process-type
+                                 (format "--type %s " process-type))
+                               (format "--app %s -- %s" app-name suffix-cmd))
+                          :in (:script task)
+                          :proc-chan (:proc-chan task))]
+    outcome))
+
 ;; DEPRECATED in flavor of sh-k8s-exec
 (def sh-rails-console-k8s
   (fn [task] (let [kube-file (File/createTempFile "task" (str (:id task)))
@@ -324,6 +340,7 @@ fi")
    :ecs-exec          sh-ecs-exec
    :elixir            sh-elixir
    :hashicorp-vault   sh-hashicorp-vault
+   :heroku            sh-heroku
    :k8s               sh-k8s
    :k8s-apply         sh-k8s-apply
    :k8s-exec          sh-k8s-exec
@@ -747,7 +764,8 @@ fi")
 
 ;; secrets validations
 (defmulti validate-secrets (fn [task] (:type task)))
-(declare k8s-validation
+(declare heroku-validation
+         k8s-validation
          mongodb-validation
          mysql-validation
          postgres-validation
@@ -759,6 +777,9 @@ fi")
 
 (defmethod validate-secrets :default [task]
   [task nil])
+
+(defmethod validate-secrets "heroku" [task]
+  (heroku-validation task))
 
 (defmethod validate-secrets "k8s" [task]
   (k8s-validation task))
@@ -798,6 +819,17 @@ fi")
 
 (defmethod validate-secrets "ecs-exec" [task]
   (ecs-exec-validation task))
+
+(defn heroku-validation [task]
+  (let [secrets (:secrets task)]
+    (if (or (empty? (:HEROKU_API_KEY secrets))
+            (empty? (:HEROKU_APP secrets))
+            (empty? (:HEROKU_EXEC_COMMAND secrets)))
+      (let [msg-err "Heroku type requires all the following secrets: HEROKU_API_KEY, HEROKU_APP, HEROKU_EXEC_COMMAND"]
+        (log/warn msg-err)
+        (sentry-task-logger task msg-err)
+        (fail-task-with-message task msg-err))
+      [task nil])))
 
 (defn k8s-validation [task]
   (let [secrets (:secrets task)]
