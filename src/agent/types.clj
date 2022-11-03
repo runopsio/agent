@@ -6,7 +6,7 @@
 (s/defschema TaskExecutionRequest
   "api -> agent"
   {:id s/Int
-   :type (s/enum "bash" "ecs-exec" "elixir" "hashicorp-vault" "k8s" "k8s-apply"
+   :type (s/enum "bash" "ecs-exec" "elixir" "hashicorp-vault" "heroku" "k8s" "k8s-apply"
                  "k8s-exec" "mongodb" "mysql" "mysql-csv" "node" "postgres" "postgres-csv"
                  "python" "rails" "rails-console" "rails-console-ecs" "rails-console-k8s"
                  "sql-server")
