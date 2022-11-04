@@ -228,6 +228,7 @@
 
 (defn sh-heroku [task]
   (let [app-name (get-in task [:secrets :HEROKU_APP])
+        api-key (get-in task [:secrets :HEROKU_API_KEY])
         dyno-size (get-in task [:secrets :HEROKU_DYNO_SIZE])
         process-type (get-in task [:secrets :HEROKU_PROCESS_TYPE])
         suffix-cmd (get-in task [:secrets :HEROKU_EXEC_COMMAND])
@@ -239,7 +240,10 @@
                                  (format "--type %s " process-type))
                                (format "--app %s -- %s" app-name suffix-cmd))
                           :in (:script task)
-                          :proc-chan (:proc-chan task))]
+                          :proc-chan (:proc-chan task)
+                          :env {"HEROKU_API_KEY" api-key
+                                "PATH" (env :path)
+                                "HOME" (env :home)})]
     outcome))
 
 ;; DEPRECATED in flavor of sh-k8s-exec
