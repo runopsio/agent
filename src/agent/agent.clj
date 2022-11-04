@@ -18,7 +18,9 @@
             [clostache.parser :as parser]
             [tracer.honeycomb :refer [with-tracing
                                       with-tracing-end]])
-  (:import java.io.File))
+  (:import java.io.File
+           java.nio.file.attribute.PosixFilePermissions
+           java.nio.file.Files))
 
 (defn decode-base64 [str]
   (String. (b64/decode str)))
@@ -97,33 +99,75 @@
                            :proc-chan (:proc-chan task))
                  outcome))))
 
-(def sh-postgres
-  (fn [task] (shell/sh "psql"
-                       "-A"
-                       (format "-F%s" (or (:FIELD_SEPARATOR (:secrets task)) "\t"))
-                       "-h" (:PG_HOST (:secrets task))
-                       "-U" (:PG_USER (:secrets task))
-                       "-d" (:PG_DB (:secrets task))
-                       "-p" (str (or (:PG_PORT (:secrets task)) "5432"))
-                       "-v" "ON_ERROR_STOP=1"
-                       :env {"PGPASSWORD" (:PG_PASS (:secrets task))
-                             "PATH" (env :path)}
-                       :in (:script task)
-                       :proc-chan (:proc-chan task))))
+(defn create-tmp-file ^java.io.File [prefix suffix]
+  (let [tmp-file (File/createTempFile prefix suffix)
+        perms (PosixFilePermissions/fromString "rw-------")]
+    (Files/setPosixFilePermissions (.toPath tmp-file) perms)
+    tmp-file))
 
-(def sh-postgres-csv
-  (fn [task] (shell/sh "psql"
-                       "-A"
-                       (format "-F%s" (or (:FIELD_SEPARATOR (:secrets task)) ","))
-                       "-h" (:PG_HOST (:secrets task))
-                       "-U" (:PG_USER (:secrets task))
-                       "-d" (:PG_DB (:secrets task))
-                       "-p" (str (or (:PG_PORT (:secrets task)) "5432"))
-                       "-v" "ON_ERROR_STOP=1"
-                       :env {"PGPASSWORD" (:PG_PASS (:secrets task))
-                             "PATH" (env :path)}
-                       :in (:script task)
-                       :proc-chan (:proc-chan task))))
+(defn pgssl-config-files [task-id secrets]
+  (let [pgsslkey-enc (or (:PGSSLKEY secrets) "bnVsbA==")
+        pgsslcrt-enc (or (:PGSSLCERT secrets) "bnVsbA==")
+        pgsslroot-enc (or (:PGSSLROOTCERT secrets) "bnVsbA==")
+        sslkeyfile (create-tmp-file "task-key." (str task-id))
+        sslcrtfile (create-tmp-file "task-crt." (str task-id))
+        sslrootfile (create-tmp-file "task-root." (str task-id))
+        _ (spit sslkeyfile (decode-base64 pgsslkey-enc))
+        _ (spit sslcrtfile (decode-base64 pgsslcrt-enc))
+        _ (spit sslrootfile (decode-base64 pgsslroot-enc))]
+    {:PGSSLKEY sslkeyfile
+     :PGSSLCERT sslcrtfile
+     :PGSSLROOTCERT sslrootfile
+     :delete-fn (fn []
+                  (.delete sslkeyfile)
+                  (.delete sslcrtfile)
+                  (.delete sslrootfile))}))
+
+(defn sh-postgres [task]
+  (let [secrets (:secrets task)
+        sslfiles (pgssl-config-files (:id task) secrets)
+        output (shell/sh
+                "psql"
+                "-A"
+                (format "-F%s" (or (:FIELD_SEPARATOR (:secrets task)) "\t"))
+                "-h" (:PG_HOST (:secrets task))
+                "-U" (:PG_USER (:secrets task))
+                "-d" (:PG_DB (:secrets task))
+                "-p" (str (or (:PG_PORT (:secrets task)) "5432"))
+                "-v" "ON_ERROR_STOP=1"
+                :env {"PGPASSWORD" (:PG_PASS (:secrets task))
+                      "PGSSLMODE" (or (:PGSSLMODE secrets) "prefer")
+                      "PGSSLKEY" (:PGSSLKEY sslfiles)
+                      "PGSSLCERT" (:PGSSLCERT sslfiles)
+                      "PGSSLROOTCERT" (:PGSSLROOTCERT sslfiles)
+                      "PATH" (env :path)}
+                :in (:script task)
+                :proc-chan (:proc-chan task))]
+    ((:delete-fn sslfiles))
+    output))
+
+(defn sh-postgres-csv [task]
+  (let [secrets (:secrets task)
+        sslfiles (pgssl-config-files (:id task) secrets)
+        output (shell/sh
+                "psql"
+                "-A"
+                (format "-F%s" (or (:FIELD_SEPARATOR (:secrets task)) ","))
+                "-h" (:PG_HOST (:secrets task))
+                "-U" (:PG_USER (:secrets task))
+                "-d" (:PG_DB (:secrets task))
+                "-p" (str (or (:PG_PORT (:secrets task)) "5432"))
+                "-v" "ON_ERROR_STOP=1"
+                :env {"PGPASSWORD" (:PG_PASS secrets)
+                      "PGSSLMODE" (or (:PGSSLMODE secrets) "prefer")
+                      "PGSSLKEY" (:PGSSLKEY sslfiles)
+                      "PGSSLCERT" (:PGSSLCERT sslfiles)
+                      "PGSSLROOTCERT" (:PGSSLROOTCERT sslfiles)
+                      "PATH" (env :path)}
+                :in (:script task)
+                :proc-chan (:proc-chan task))]
+    ((:delete-fn sslfiles))
+    output))
 
 (defn sh-mssql [task]
   (let [secrets (:secrets task)
