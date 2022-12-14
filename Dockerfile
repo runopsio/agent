@@ -28,7 +28,8 @@ RUN apt-get update -y && \
         unzip \
         expect \
         lsb-release && \
-	adduser runops --system --group
+	adduser runops --system --group && \
+	mkdir -p /home/runops/.cassandra
 
 # Node
 # https://github.com/nodejs/docker-node/blob/main/16/bullseye/Dockerfile
