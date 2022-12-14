@@ -143,6 +143,7 @@ RUN pip3 install -U \
     colorama==0.4.4 \
     contextlib2==0.6.0 \
     cryptography==36.0.1 \
+    cqlsh==6.0.0 \
     distlib==0.3.1 \
     distro==1.5.0 \
     html5lib==1.1 \
