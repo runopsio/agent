@@ -195,7 +195,7 @@ ENV LC_ALL en_US.UTF-8
 ENV PATH="/opt/mssql-tools/bin:${PATH}"
 ENV PATH="/opt/sqlcl/bin:${PATH}"
 
-# ADD target/uberjar/agent-$VERSION-standalone.jar /agent/app.jar
+ADD target/uberjar/agent-$VERSION-standalone.jar /agent/app.jar
 COPY rootfs/ /
 
 # webapp ui
