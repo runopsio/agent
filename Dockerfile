@@ -87,32 +87,32 @@ RUN apt-get update -y && \
 #         dpkg -i session-manager-plugin.deb && \
 #         rm -f /tmp/* session-manager-plugin.deb
 
-# RUN echo "deb http://apt.postgresql.org/pub/repos/apt/ focal-pgdg main" | tee /etc/apt/sources.list.d/pgdg.list && \
-#     echo "deb [arch=amd64,arm64] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/5.0 multiverse" | tee /etc/apt/sources.list.d/mongodb-org-5.0.list && \
-#     echo "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/hashicorp.list && \
-#     echo "deb https://cli-assets.heroku.com/apt ./" > /etc/apt/sources.list.d/heroku.list && \
-#     curl -sL https://cli-assets.heroku.com/apt/release.key | apt-key add - && \
-#     curl -sL https://packages.microsoft.com/config/ubuntu/20.04/prod.list | tee /etc/apt/sources.list.d/msprod.list && \
-#     curl -sL https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - && \
-#     curl -sL https://www.mongodb.org/static/pgp/server-5.0.asc | apt-key add - && \
-#     curl -sL https://apt.releases.hashicorp.com/gpg | apt-key add - && \
-#     curl -sL https://packages.microsoft.com/keys/microsoft.asc | apt-key add - && \
-#     curl -fsSLO https://packages.erlang-solutions.com/erlang-solutions_2.0_all.deb && \
-#         dpkg -i erlang-solutions_2.0_all.deb
+RUN echo "deb http://apt.postgresql.org/pub/repos/apt/ focal-pgdg main" | tee /etc/apt/sources.list.d/pgdg.list && \
+    echo "deb [arch=amd64,arm64] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/5.0 multiverse" | tee /etc/apt/sources.list.d/mongodb-org-5.0.list && \
+    echo "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/hashicorp.list && \
+    echo "deb https://cli-assets.heroku.com/apt ./" > /etc/apt/sources.list.d/heroku.list && \
+    curl -sL https://cli-assets.heroku.com/apt/release.key | apt-key add - && \
+    curl -sL https://packages.microsoft.com/config/ubuntu/20.04/prod.list | tee /etc/apt/sources.list.d/msprod.list && \
+    curl -sL https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - && \
+    curl -sL https://www.mongodb.org/static/pgp/server-5.0.asc | apt-key add - && \
+    curl -sL https://apt.releases.hashicorp.com/gpg | apt-key add - && \
+    curl -sL https://packages.microsoft.com/keys/microsoft.asc | apt-key add - && \
+    curl -fsSLO https://packages.erlang-solutions.com/erlang-solutions_2.0_all.deb && \
+        dpkg -i erlang-solutions_2.0_all.deb
 
-# RUN apt-get update -y && \
-#     apt-get install -y \
-#         mongodb-mongosh mongodb-org-tools mongodb-org-shell libyaml-cpp0.6 \
-#         vault=1.5.9 libcap2-bin \
-#         heroku \
-#         openjdk-11-jre \
-#         elixir=$ELIXIR_VERSION \
-#         default-mysql-client \
-#         postgresql-client-13 \
-#         mssql-tools unixodbc-dev && \
-#         rm -rf /var/lib/apt/lists/* && \
-#         setcap cap_ipc_lock= /usr/bin/vault && \
-#         ln -s /usr/bin/vault /usr/sbin/vault
+RUN apt-get update -y && \
+    apt-get install -y \
+        mongodb-mongosh mongodb-org-tools mongodb-org-shell libyaml-cpp0.6 \
+        vault=1.5.9 libcap2-bin \
+        heroku \
+        openjdk-11-jre \
+        elixir=$ELIXIR_VERSION \
+        default-mysql-client \
+        postgresql-client-13 \
+        mssql-tools unixodbc-dev && \
+        rm -rf /var/lib/apt/lists/* && \
+        setcap cap_ipc_lock= /usr/bin/vault && \
+        ln -s /usr/bin/vault /usr/sbin/vault
 
 # sqlcl only provides the latest version to download via curl
 # https://www.oracle.com/database/sqldeveloper/technologies/sqlcl/download/#
