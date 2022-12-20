@@ -1,5 +1,4 @@
 FROM ubuntu:focal-20210827
-MAINTAINER RunOps first@runops.io
 
 ARG VERSION
 ARG NODE_VERSION=16.13.0
@@ -115,6 +114,16 @@ RUN apt-get update -y && \
         setcap cap_ipc_lock= /usr/bin/vault && \
         ln -s /usr/bin/vault /usr/sbin/vault
 
+# sqlcl only provides the latest version to download via curl
+# https://www.oracle.com/database/sqldeveloper/technologies/sqlcl/download/#
+# Version 22.4.0.342.1212 - December 12, 2022
+RUN curl https://download.oracle.com/otn_software/java/sqldeveloper/sqlcl-latest.zip -o sqlcl-latest.zip && \
+    echo 'CCE3901CC0EBD05541820E11D171EA626639B5C7  sqlcl-latest.zip' | sha1sum -c - && \
+    unzip -q sqlcl-latest.zip && \
+    rm -f sqlcl-latest.zip ./sqlcl/bin/sql.exe && \
+    mv ./sqlcl/bin/sql ./sqlcl/bin/sqlcl && \
+    mv ./sqlcl /opt/
+
 # clojure
 RUN curl -sL https://download.clojure.org/install/linux-install-$CLOJURE_VERSION.sh -o clojure-install.sh && \
     sha256sum clojure-install.sh && \
@@ -184,12 +193,10 @@ ENV LANGUAGE en_US:en
 ENV LC_ALL en_US.UTF-8
 
 ENV PATH="/opt/mssql-tools/bin:${PATH}"
+ENV PATH="/opt/sqlcl/bin:${PATH}"
 
 ADD target/uberjar/agent-$VERSION-standalone.jar /agent/app.jar
 COPY rootfs/ /
-
-# webapp ui
-EXPOSE 8000
 
 ENTRYPOINT ["tini", "--"]
 CMD ["/usr/local/bin/run-agent.sh"]
