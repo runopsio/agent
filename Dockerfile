@@ -198,8 +198,5 @@ ENV PATH="/opt/sqlcl/bin:${PATH}"
 ADD target/uberjar/agent-$VERSION-standalone.jar /agent/app.jar
 COPY rootfs/ /
 
-# webapp ui
-EXPOSE 8000
-
 ENTRYPOINT ["tini", "--"]
 CMD ["/usr/local/bin/run-agent.sh"]
