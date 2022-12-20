@@ -120,9 +120,9 @@ RUN apt-get update -y && \
 RUN curl https://download.oracle.com/otn_software/java/sqldeveloper/sqlcl-latest.zip -o sqlcl-latest.zip && \
     echo 'CCE3901CC0EBD05541820E11D171EA626639B5C7  sqlcl-latest.zip' | sha1sum -c - && \
     unzip -q sqlcl-latest.zip && \
-    rm -f sqlcl-latest.zip && \
-    rm -f ./sqlcl/bin/sql.exe && \
-    mv ./sqlcl/bin/sql ./sqlcl/bin/sqlcl
+    rm -f sqlcl-latest.zip ./sqlcl/bin/sql.exe && \
+    mv ./sqlcl/bin/sql ./sqlcl/bin/sqlcl && \
+    mv ./sqlcl /opt/
 
 # clojure
 # RUN curl -sL https://download.clojure.org/install/linux-install-$CLOJURE_VERSION.sh -o clojure-install.sh && \
