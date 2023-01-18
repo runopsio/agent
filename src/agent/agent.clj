@@ -135,12 +135,15 @@
                 "-d" (:PG_DB (:secrets task))
                 "-p" (str (or (:PG_PORT (:secrets task)) "5432"))
                 "-v" "ON_ERROR_STOP=1"
-                :env {"PGPASSWORD" (:PG_PASS (:secrets task))
-                      "PGSSLMODE" (or (:PGSSLMODE secrets) "prefer")
-                      "PGSSLKEY" (:PGSSLKEY sslfiles)
-                      "PGSSLCERT" (:PGSSLCERT sslfiles)
-                      "PGSSLROOTCERT" (:PGSSLROOTCERT sslfiles)
-                      "PATH" (env :path)}
+                :env (merge
+                      {"PGPASSWORD" (:PG_PASS (:secrets task))
+                       "PATH" (env :path)
+                       "PGSSLMODE" (or (:PGSSLMODE secrets) "prefer")}
+                      (when-let [_ (:PGSSLKEY secrets)]
+                        {"PGSSLKEY" (:PGSSLKEY sslfiles)
+                         "PGSSLCERT" (:PGSSLCERT sslfiles)})
+                      (when-let [_ (:PGSSLROOTCERT secrets)]
+                        {"PGSSLROOTCERT" (:PGSSLROOTCERT sslfiles)}))
                 :in (:script task)
                 :proc-chan (:proc-chan task))]
     ((:delete-fn sslfiles))
@@ -158,12 +161,15 @@
                 "-d" (:PG_DB (:secrets task))
                 "-p" (str (or (:PG_PORT (:secrets task)) "5432"))
                 "-v" "ON_ERROR_STOP=1"
-                :env {"PGPASSWORD" (:PG_PASS secrets)
-                      "PGSSLMODE" (or (:PGSSLMODE secrets) "prefer")
-                      "PGSSLKEY" (:PGSSLKEY sslfiles)
-                      "PGSSLCERT" (:PGSSLCERT sslfiles)
-                      "PGSSLROOTCERT" (:PGSSLROOTCERT sslfiles)
-                      "PATH" (env :path)}
+                :env (merge
+                      {"PGPASSWORD" (:PG_PASS (:secrets task))
+                       "PATH" (env :path)
+                       "PGSSLMODE" (or (:PGSSLMODE secrets) "prefer")}
+                      (when-let [_ (:PGSSLKEY secrets)]
+                        {"PGSSLKEY" (:PGSSLKEY sslfiles)
+                         "PGSSLCERT" (:PGSSLCERT sslfiles)})
+                      (when-let [_ (:PGSSLROOTCERT secrets)]
+                        {"PGSSLROOTCERT" (:PGSSLROOTCERT sslfiles)}))
                 :in (:script task)
                 :proc-chan (:proc-chan task))]
     ((:delete-fn sslfiles))
