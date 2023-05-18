@@ -116,9 +116,7 @@ RUN apt-get update -y && \
 
 # sqlcl only provides the latest version to download via curl
 # https://www.oracle.com/database/sqldeveloper/technologies/sqlcl/download/#
-# Version 22.4.0.342.1212 - December 12, 2022
 RUN curl https://download.oracle.com/otn_software/java/sqldeveloper/sqlcl-latest.zip -o sqlcl-latest.zip && \
-    echo 'CCE3901CC0EBD05541820E11D171EA626639B5C7  sqlcl-latest.zip' | sha1sum -c - && \
     unzip -q sqlcl-latest.zip && \
     rm -f sqlcl-latest.zip ./sqlcl/bin/sql.exe && \
     mv ./sqlcl/bin/sql ./sqlcl/bin/sqlcl && \
