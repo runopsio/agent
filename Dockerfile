@@ -172,6 +172,7 @@ RUN pip3 install -U \
     psycopg2-binary==2.9.3 \
     pymssql==2.2.3 \
     PyMySQL==1.0.2 \
+    pyodbc==4.0.39 \
     pyparsing==2.4.7 \
     pytoml==0.1.21 \
     pytz==2021.1 \
