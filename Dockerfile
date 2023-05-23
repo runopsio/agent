@@ -109,7 +109,7 @@ RUN apt-get update -y && \
         elixir=$ELIXIR_VERSION \
         default-mysql-client \
         postgresql-client-13 \
-        mssql-tools unixodbc-dev && \
+        msodbcsql18 mssql-tools unixodbc-dev && \
         rm -rf /var/lib/apt/lists/* && \
         setcap cap_ipc_lock= /usr/bin/vault && \
         ln -s /usr/bin/vault /usr/sbin/vault
@@ -181,6 +181,7 @@ RUN pip3 install -U \
     retrying==1.3.3 \
     toml==0.10.2 \
     PyJWT==2.3.0 \
+    urllib3==1.26.12 \
     webencodings==0.5.1
 
 RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && \
