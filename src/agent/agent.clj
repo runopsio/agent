@@ -340,14 +340,15 @@
         ;; pass the script as base64 and decode inside the container
         ;; which will prevent character escaping issues. Rails was used to no rely
         ;; on local dependencies tools like base64.
+        task-id (get-in task [:secrets :RUNOPS_TASK_ID])
         ecs-command (format
                      (str "/bin/sh -c \""
                           (when (get-in task [:secrets :ECS_DEBUG]) "set -x; ")
                           "DISABLE_SPRING=1 rails runner 'require \"'\"base64\"'\";"
-                          "File.write(\"'\"/tmp/runops-script\"'\", Base64.decode64(\"'\"%s\"'\"))'"
-                          "&& DISABLE_SPRING=1 rails runner /tmp/runops-script"
+                          "File.write(\"'\"/tmp/runops-script-%s\"'\", Base64.decode64(\"'\"%s\"'\"))'"
+                          "&& DISABLE_SPRING=1 rails runner /tmp/runops-script-%s"
                           "\"")
-                     base64-script)]
+                      task-id base64-script task-id)]
     (aws-ecs-exec ecs-command task)))
 
 (def custom-command-tmpl
