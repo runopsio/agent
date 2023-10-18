@@ -154,6 +154,7 @@ RUN pip3 install -U \
     cqlsh==6.0.0 \
     distlib==0.3.1 \
     distro==1.5.0 \
+    Faker==19.10.0 \
     html5lib==1.1 \
     hvac==0.11.2 \
     kafka-python==2.0.2 \
